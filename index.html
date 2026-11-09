@@ -1,0 +1,2046 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Drawing Tool</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;1,400&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#d8dde2; --panel:#f3f5f7; --panel2:#e5e9ed; --field:#ffffff; --line:#c4ccd4;
+  --ink:#18212a; --ink2:#5a6672; --acc:#0a6f9e; --accSoft:rgba(10,111,158,.13);
+  --paper:#f7f6f2; --desk:#cfd2d6; --gMinor:#e7e6e2; --gMajor:#d0cec8; --sel:#0a8bd1;
+  color-scheme:light; box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --bg:#11151a; --panel:#1a2027; --panel2:#232a32; --field:#141920; --line:#36404b;
+    --ink:#e2e7ec; --ink2:#94a1ad; --acc:#52b5e4; --accSoft:rgba(82,181,228,.17);
+    --paper:#f2f1ed; --desk:#262b31; --gMinor:#e2e1dd; --gMajor:#cbc9c3; --sel:#1b9be0; color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#11151a; --panel:#1a2027; --panel2:#232a32; --field:#141920; --line:#36404b;
+  --ink:#e2e7ec; --ink2:#94a1ad; --acc:#52b5e4; --accSoft:rgba(82,181,228,.17);
+  --paper:#f2f1ed; --desk:#262b31; --gMinor:#e2e1dd; --gMajor:#cbc9c3; --sel:#1b9be0; color-scheme:dark;
+}
+*,*::before,*::after{box-sizing:inherit}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+html,body{height:100%;margin:0}
+body{background:var(--bg);color:var(--ink);font:13px/1.4 'IBM Plex Sans',system-ui,-apple-system,'Segoe UI',Arial,sans-serif;overflow:hidden;font-variant-numeric:tabular-nums}
+#app{height:100%;display:grid;grid-template-columns:214px minmax(0,1fr) 272px;grid-template-rows:auto minmax(0,1fr) 26px}
+
+/* top bar */
+#top{grid-column:1/-1;display:flex;align-items:center;gap:4px;padding:6px 10px;background:var(--panel);border-bottom:1px solid var(--line);flex-wrap:wrap;min-width:0}
+.brand{display:flex;align-items:center;gap:7px;font-weight:600;font-size:14px;margin-right:10px;white-space:nowrap}
+.brand svg{width:22px;height:18px}
+.btn{height:28px;padding:0 8px;border:1px solid transparent;background:transparent;color:var(--ink);border-radius:5px;display:inline-flex;align-items:center;gap:5px;cursor:pointer;font:inherit;white-space:nowrap}
+.btn svg{width:16px;height:16px;flex:none}
+.btn:hover{background:var(--panel2)}
+.btn[aria-pressed="true"]{background:var(--accSoft);color:var(--acc);border-color:var(--acc)}
+.btn:disabled{opacity:.4;cursor:default}
+.btn:focus-visible,.tile:focus-visible,.seg button:focus-visible,.sw button:focus-visible{outline:2px solid var(--acc);outline-offset:1px}
+.algroup{display:inline-flex;gap:0}
+.algroup .btn{padding:0 5px}
+.sep{width:1px;height:20px;background:var(--line);margin:0 5px}
+.grow{flex:1}
+#zoomLbl{min-width:52px;justify-content:center}
+#selStep{height:26px;border:1px solid var(--line);background:var(--field);color:var(--ink);border-radius:4px;font:inherit;padding:0 4px}
+.mob{display:none}
+
+/* library */
+#lib{background:var(--panel);border-right:1px solid var(--line);overflow:auto;padding:10px 8px 20px;min-height:0}
+#libSearch{width:100%;height:28px;border:1px solid var(--line);background:var(--field);color:var(--ink);border-radius:5px;padding:0 8px;font:inherit;margin-bottom:6px}
+#lib h3{font-size:12px;font-weight:600;color:var(--ink2);margin:12px 4px 4px}
+.tiles{display:grid;grid-template-columns:repeat(3,1fr);gap:2px}
+.tile{display:flex;flex-direction:column;align-items:center;gap:2px;padding:6px 2px 5px;border-radius:6px;border:1px solid transparent;background:none;cursor:grab;color:var(--ink);font:11px/1.2 'IBM Plex Sans',system-ui,sans-serif;text-align:center}
+.tile:hover{background:var(--panel2);border-color:var(--line)}
+.tile svg{width:44px;height:30px;overflow:visible}
+.panelX{display:none}
+
+/* stage */
+#stage{position:relative;display:grid;grid-template-columns:22px minmax(0,1fr);grid-template-rows:22px minmax(0,1fr);min-width:0;min-height:0}
+#corner{background:var(--panel2);border-right:1px solid var(--line);border-bottom:1px solid var(--line)}
+#rulerX,#rulerY{display:block;width:100%;height:100%;background:var(--panel2)}
+#rulerX{border-bottom:1px solid var(--line)}
+#rulerY{border-right:1px solid var(--line)}
+#cvwrap{position:relative;overflow:hidden;background:var(--paper);min-width:0;min-height:0}
+#cvwrap.paged{background:var(--desk)}
+#cvwrap.paused #cv{opacity:.55;filter:grayscale(.4)}
+#pauseNote{display:none;position:absolute;top:10px;left:50%;transform:translateX(-50%);background:var(--ink);color:var(--panel);padding:7px 14px;border-radius:6px;font-size:12px;z-index:6;pointer-events:none;white-space:nowrap}
+#cv{width:100%;height:100%;display:block;touch-action:none;user-select:none;-webkit-user-select:none}
+#cv.t-text{cursor:text} #cv.t-wire,#cv.t-dim,#cv.t-line,#cv.t-qm{cursor:crosshair}
+#qmLayer{position:absolute;inset:0;pointer-events:none;z-index:6;overflow:hidden}
+.qmPop{position:absolute;pointer-events:none;background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:6px;box-shadow:0 4px 14px rgba(0,0,0,.18);padding:7px 10px;font-size:12px;line-height:1.5;white-space:nowrap}
+.qmPop b{font-weight:600}
+.qmPop span{color:var(--ink2);display:inline-block;min-width:58px}
+#cv.t-select #layer [data-id]{cursor:move}
+#cv.t-select #layer [data-lock],#cv.t-select #layer [data-bg]{cursor:default}
+#cv.placing,#cv.placing #layer [data-id]{cursor:copy}
+#cv.painting,#cv.painting #layer [data-id]{cursor:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'%3E%3Cpath d='M13 2l9 9-6 6-9-9z' fill='%23fff' stroke='%23000' stroke-width='1.4'/%3E%3Cpath d='M7 8l-4.5 4.5c-1.2 1.2-.6 4 1.3 5.3 1.7 1.2 4 .9 5.2-.3L13.5 13z' fill='%23000'/%3E%3C/svg%3E") 3 20, copy}
+.tile.on{background:var(--accSoft);border-color:var(--acc);color:var(--acc)} #cv.panning{cursor:grabbing}
+#editor{position:absolute;display:none;resize:none;border:1px dashed var(--sel);background:transparent;transform-origin:50% 50%;color:#111;padding:1px 2px;outline:none;line-height:1.25;overflow:hidden;z-index:5;border-radius:2px}
+
+/* properties */
+#props{background:var(--panel);border-left:1px solid var(--line);overflow:auto;min-height:0}
+.sec{padding:10px 12px 12px;border-bottom:1px solid var(--line)}
+.sec h4{margin:0 0 8px;font-size:12px;font-weight:600;color:var(--ink2)}
+.sec .title{font-size:14px;font-weight:600;color:var(--ink);margin:0}
+.sec .sub{font-size:12px;color:var(--ink2);margin:2px 0 0}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:6px 8px}
+.row{display:flex;align-items:center;gap:8px;margin-top:7px;flex-wrap:wrap}
+.f{display:flex;align-items:center;gap:5px;font-size:12px;min-width:0}
+.f>span{color:var(--ink2);flex:none}
+.f>i{font-style:normal;color:var(--ink2);font-size:11px}
+.f input[type=number],.f select,.sec textarea{width:100%;min-width:0;height:26px;border:1px solid var(--line);background:var(--field);color:var(--ink);border-radius:4px;padding:0 5px;font:inherit;font-size:12px}
+.sec textarea{height:auto;min-height:46px;padding:4px 6px;resize:vertical;display:block}
+.f input:focus,.f select:focus,.sec textarea:focus,#libSearch:focus{outline:none;border-color:var(--acc);box-shadow:0 0 0 2px var(--accSoft)}
+input[type=color]{width:30px;height:24px;padding:0;border:1px solid var(--line);border-radius:4px;background:none;cursor:pointer;flex:none}
+.f input.dirty,.sec textarea.dirty{border-color:#d93a3a;box-shadow:0 0 0 2px rgba(217,58,58,.25)}
+.chk{display:flex;align-items:center;gap:5px;font-size:12px;cursor:pointer;color:var(--ink)}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:5px;overflow:hidden;background:var(--field)}
+.seg button{border:0;border-right:1px solid var(--line);background:transparent;padding:0 8px;height:24px;color:var(--ink);cursor:pointer;font:inherit;font-size:12px;min-width:26px}
+.seg button:last-child{border-right:0}
+.seg button.on{background:var(--accSoft);color:var(--acc)}
+.sw{display:flex;gap:3px;flex-wrap:wrap;margin-top:6px}
+.sw button{width:17px;height:17px;border-radius:3px;border:1px solid rgba(0,0,0,.25);padding:0;cursor:pointer}
+.acts{display:flex;flex-wrap:wrap;gap:4px}
+.acts .btn{border-color:var(--line);height:26px;font-size:12px}
+.help{font-size:12px;color:var(--ink2)}
+.help p{margin:0 0 10px;color:var(--ink)}
+.help dl{display:grid;grid-template-columns:auto 1fr;gap:5px 10px;margin:0}
+.help dt{white-space:nowrap}
+.help dd{margin:0}
+kbd{font:11px 'IBM Plex Sans',system-ui,sans-serif;border:1px solid var(--line);border-bottom-width:2px;border-radius:3px;padding:0 4px;background:var(--field);color:var(--ink)}
+.len{font-size:20px;font-weight:600;color:var(--ink)}
+
+/* status */
+#status{grid-column:1/-1;display:flex;gap:18px;align-items:center;padding:0 12px;font-size:12px;color:var(--ink2);background:var(--panel);border-top:1px solid var(--line);white-space:nowrap;overflow:hidden}
+#status b{font-weight:500;color:var(--ink)}
+#stHint{margin-left:auto;overflow:hidden;text-overflow:ellipsis}
+#credit{flex:none;padding-left:14px;border-left:1px solid var(--line);font-size:13.5px;font-weight:700;color:var(--ink);letter-spacing:.02em}
+.pop{position:fixed;z-index:40;background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,.2);padding:6px;min-width:180px;font-size:12px}
+.pop[hidden]{display:none}
+.pop .gp-h{font-weight:600;color:var(--ink2);padding:4px 8px 6px}
+.pop button{display:flex;align-items:center;gap:8px;width:100%;border:0;background:none;color:var(--ink);padding:5px 8px;border-radius:5px;cursor:pointer;font:inherit;text-align:left}
+.pop button:hover,.pop label:hover{background:var(--panel2)}
+.pop button.on{background:var(--accSoft);color:var(--acc)}
+.pop kbd{min-width:18px;text-align:center}
+.pop .gp-sep{height:1px;background:var(--line);margin:5px 2px}
+.pop label{display:flex;align-items:center;gap:8px;padding:5px 8px;border-radius:5px;cursor:pointer}
+#toast{position:fixed;left:50%;bottom:calc(44px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--panel);padding:7px 14px;border-radius:6px;font-size:12px;opacity:0;pointer-events:none;transition:opacity .2s;z-index:50}
+#toast.on{opacity:1}
+
+@media (max-width:900px){
+  #app{grid-template-columns:minmax(0,1fr)}
+  #lib,#props{position:fixed;top:0;bottom:0;z-index:30;width:min(290px,86vw);padding-top:calc(10px + env(safe-area-inset-top,0px));transition:transform .2s;box-shadow:0 0 24px rgba(0,0,0,.25)}
+  #lib{left:0;transform:translateX(-105%)}
+  #props{right:0;transform:translateX(105%)}
+  #lib.open,#props.open{transform:none}
+  .mob,.panelX{display:inline-flex}
+  .panelX{float:right}
+  .brand span,.lbl{display:none}
+  #stHint{display:none}
+  #credit{margin-left:auto}
+}
+@media (prefers-reduced-motion:reduce){#lib,#props,#toast{transition:none}}
+</style>
+</head>
+<body>
+<div id="app">
+  <header id="top">
+    <div class="brand">
+      <span>Drawing Tool</span>
+    </div>
+    <button class="btn mob" id="btnLib" title="Library">
+      <svg viewBox="0 0 16 16"><path d="M2 2h5v5H2zM9 2h5v5H9zM2 9h5v5H2zM9 9h5v5H9z" fill="none" stroke="currentColor" stroke-width="1.3"/></svg></button>
+    <button class="btn" id="btnNew" title="New page"><svg viewBox="0 0 16 16"><path d="M4 1.5h5.5L12.5 4.5V14.5H4z M9.5 1.5v3h3" fill="none" stroke="currentColor" stroke-width="1.3"/></svg><span class="lbl">New</span></button>
+    <button class="btn" id="btnOpen" title="Open a JSON file"><svg viewBox="0 0 16 16"><path d="M1.5 3.5h4l1.5 1.5h7.5v8.5h-13z" fill="none" stroke="currentColor" stroke-width="1.3"/></svg><span class="lbl">Open</span></button>
+    <button class="btn" id="btnSave" title="Save as JSON (Ctrl+S)"><svg viewBox="0 0 16 16"><path d="M2.5 2.5h9l2 2v9h-11z M5 2.5v4h6v-4 M5 13.5v-4h6v4" fill="none" stroke="currentColor" stroke-width="1.3"/></svg><span class="lbl">Save</span></button>
+    <input type="file" id="fileIn" accept=".json,application/json" hidden>
+    <span class="sep"></span>
+    <button class="btn" id="btnSvg" title="Export SVG at true scale"><span>SVG</span></button>
+    <button class="btn" id="btnPng" title="Export PNG at 300 dpi"><span>PNG</span></button>
+    <span class="sep"></span>
+    <button class="btn" id="btnUndo" title="Undo (Ctrl+Z)"><svg viewBox="0 0 16 16"><path d="M5 3L2 6l3 3 M2 6h8a4 4 0 010 8H7" fill="none" stroke="currentColor" stroke-width="1.4"/></svg></button>
+    <button class="btn" id="btnRedo" title="Redo (Ctrl+Y)"><svg viewBox="0 0 16 16"><path d="M11 3l3 3-3 3 M14 6H6a4 4 0 000 8h3" fill="none" stroke="currentColor" stroke-width="1.4"/></svg></button>
+    <span class="sep"></span>
+    <button class="btn tool" data-tool="select" title="Select and move (V)"><svg viewBox="0 0 16 16"><path d="M3 2l9 5-4 1.2L6.5 13z" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/></svg><span class="lbl">Select</span></button>
+    <button class="btn tool" data-tool="text" title="Text box (T)"><svg viewBox="0 0 16 16"><path d="M3 3.5h10M8 3.5v10M6 13.5h4" fill="none" stroke="currentColor" stroke-width="1.4"/></svg><span class="lbl">Text</span></button>
+    <button class="btn tool" data-tool="wire" title="Connector arrow (W)"><svg viewBox="0 0 16 16"><path d="M2 12h5V4h5" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M11 1.5l3.5 2.5-3.5 2.5z" fill="currentColor"/></svg><span class="lbl">Connector</span></button>
+    <button class="btn tool" data-tool="line" title="Free line (L): click to start, click each corner, double-click to finish"><svg viewBox="0 0 16 16"><path d="M2.5 13.5l11-11" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg><span class="lbl">Line</span></button>
+    <button class="btn tool" data-tool="dim" title="Dimension (M): click to start, click each corner, double-click to finish"><svg viewBox="0 0 16 16"><path d="M1.5 4v8M14.5 4v8M3 8h10" fill="none" stroke="currentColor" stroke-width="1.3"/><path d="M2 8l3-2v4zM14 8l-3-2v4z" fill="currentColor"/></svg><span class="lbl">Dimension</span></button>
+    <button class="btn" id="btnFilter" aria-pressed="false" title="Selection filter: choose which kinds of objects can be selected"><svg viewBox="0 0 16 16"><path d="M2 3h12l-4.5 5.5V13l-3 1.5v-6z" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/></svg><span class="lbl">Filter</span></button>
+    <button class="btn" id="btnFmt" aria-pressed="false" title="Format painter: copy the selected object's format, then click objects of the same kind. Double-click to keep painting. Ctrl+Shift+C / Ctrl+Shift+V copy and paste format"><svg viewBox="0 0 16 16"><path d="M3 2h9v4H3z M12 4h2v4H8v2" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/><path d="M7 10h2v4.5H7z" fill="currentColor"/></svg><span class="lbl">Format</span></button>
+    <span class="sep"></span>
+    <span class="algroup">
+    <button class="btn al" data-al="l" title="Align left edges"><svg viewBox="0 0 16 16"><path d="M2 1.5v13" stroke="currentColor" stroke-width="1.4"/><rect x="4" y="3" width="9" height="3" fill="none" stroke="currentColor"/><rect x="4" y="10" width="6" height="3" fill="none" stroke="currentColor"/></svg></button>
+    <button class="btn al" data-al="c" title="Align centers horizontally"><svg viewBox="0 0 16 16"><path d="M8 1.5v13" stroke="currentColor" stroke-width="1.4"/><rect x="3" y="3" width="10" height="3" fill="none" stroke="currentColor"/><rect x="5" y="10" width="6" height="3" fill="none" stroke="currentColor"/></svg></button>
+    <button class="btn al" data-al="r" title="Align right edges"><svg viewBox="0 0 16 16"><path d="M14 1.5v13" stroke="currentColor" stroke-width="1.4"/><rect x="3" y="3" width="9" height="3" fill="none" stroke="currentColor"/><rect x="6" y="10" width="6" height="3" fill="none" stroke="currentColor"/></svg></button>
+    <button class="btn al" data-al="t" title="Align top edges"><svg viewBox="0 0 16 16"><path d="M1.5 2h13" stroke="currentColor" stroke-width="1.4"/><rect x="3" y="4" width="3" height="9" fill="none" stroke="currentColor"/><rect x="10" y="4" width="3" height="6" fill="none" stroke="currentColor"/></svg></button>
+    <button class="btn al" data-al="m" title="Align centers vertically"><svg viewBox="0 0 16 16"><path d="M1.5 8h13" stroke="currentColor" stroke-width="1.4"/><rect x="3" y="3" width="3" height="10" fill="none" stroke="currentColor"/><rect x="10" y="5" width="3" height="6" fill="none" stroke="currentColor"/></svg></button>
+    <button class="btn al" data-al="b" title="Align bottom edges"><svg viewBox="0 0 16 16"><path d="M1.5 14h13" stroke="currentColor" stroke-width="1.4"/><rect x="3" y="3" width="3" height="9" fill="none" stroke="currentColor"/><rect x="10" y="6" width="3" height="6" fill="none" stroke="currentColor"/></svg></button>
+    <button class="btn al" data-al="dh" title="Space evenly, horizontally (3 or more)"><svg viewBox="0 0 16 16"><path d="M1.5 2v12M14.5 2v12" stroke="currentColor" stroke-width="1.4"/><rect x="6.5" y="4" width="3" height="8" fill="none" stroke="currentColor"/></svg></button>
+    <button class="btn al" data-al="dv" title="Space evenly, vertically (3 or more)"><svg viewBox="0 0 16 16"><path d="M2 1.5h12M2 14.5h12" stroke="currentColor" stroke-width="1.4"/><rect x="4" y="6.5" width="8" height="3" fill="none" stroke="currentColor"/></svg></button>
+    </span>
+    <span class="sep"></span>
+    <button class="btn" id="btnGrid" aria-pressed="true" title="Show grid (G)"><svg viewBox="0 0 16 16"><path d="M1.5 5.5h13M1.5 10.5h13M5.5 1.5v13M10.5 1.5v13" fill="none" stroke="currentColor" stroke-width="1.1"/></svg><span class="lbl">Grid</span></button>
+    <button class="btn" id="btnSnap" aria-pressed="true" title="Snap to grid (hold Alt to bypass)"><svg viewBox="0 0 16 16"><path d="M4 2v6a4 4 0 008 0V2 M4 5h3M9 5h3" fill="none" stroke="currentColor" stroke-width="1.4"/></svg><span class="lbl">Snap</span></button>
+    <select id="selStep" title="Snap step">
+      <option value="0.1">0.1 mm</option><option value="0.5">0.5 mm</option><option value="1" selected>1 mm</option><option value="2">2 mm</option><option value="2.54">2.54 mm</option><option value="5">5 mm</option>
+    </select>
+    <span class="grow"></span>
+    <button class="btn" id="btnZoomOut" title="Zoom out (-)"><svg viewBox="0 0 16 16"><path d="M3 8h10" stroke="currentColor" stroke-width="1.5"/></svg></button>
+    <button class="btn" id="zoomLbl" title="Actual size (100%)">100%</button>
+    <button class="btn" id="btnZoomIn" title="Zoom in (+)"><svg viewBox="0 0 16 16"><path d="M3 8h10M8 3v10" stroke="currentColor" stroke-width="1.5"/></svg></button>
+    <button class="btn" id="btnFit" title="Fit the page (or the whole drawing) to the screen (0)"><svg viewBox="0 0 16 16"><path d="M1.5 5V1.5H5M11 1.5h3.5V5M14.5 11v3.5H11M5 14.5H1.5V11" fill="none" stroke="currentColor" stroke-width="1.4"/></svg><span class="lbl">Fit</span></button>
+    <button class="btn" id="btnCrop" title="Shrink the page to the drawing, so export contains only the used area"><svg viewBox="0 0 16 16"><path d="M4 1v11h11M1 4h11v11" fill="none" stroke="currentColor" stroke-width="1.4"/></svg><span class="lbl">Crop</span></button>
+    <button class="btn mob" id="btnProps" title="Properties"><svg viewBox="0 0 16 16"><path d="M2 4h12M2 8h12M2 12h12" stroke="currentColor" stroke-width="1.4"/><circle cx="5" cy="4" r="1.6" fill="var(--panel)" stroke="currentColor"/><circle cx="11" cy="8" r="1.6" fill="var(--panel)" stroke="currentColor"/><circle cx="7" cy="12" r="1.6" fill="var(--panel)" stroke="currentColor"/></svg></button>
+  </header>
+
+  <aside id="lib" aria-label="Shape library">
+    <button class="btn panelX" data-close="lib" title="Close">✕</button>
+    <input id="libSearch" type="search" placeholder="Search: resistor, filter, ADC…" aria-label="Search shapes">
+    <div id="libBody"></div>
+  </aside>
+
+  <main id="stage">
+    <div id="corner"></div>
+    <canvas id="rulerX"></canvas>
+    <canvas id="rulerY"></canvas>
+    <div id="cvwrap">
+      <svg id="cv" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <pattern id="gridPat" width="10" height="10" patternUnits="userSpaceOnUse">
+            <path id="gMinor" d="M1 0V10M2 0V10M3 0V10M4 0V10M5 0V10M6 0V10M7 0V10M8 0V10M9 0V10M0 1H10M0 2H10M0 3H10M0 4H10M0 5H10M0 6H10M0 7H10M0 8H10M0 9H10" fill="none" style="stroke:var(--gMinor)"/>
+            <path id="gMajor" d="M0 0V10M0 0H10" fill="none" style="stroke:var(--gMajor)"/>
+          </pattern>
+        </defs>
+        <g id="world">
+          <rect id="pageShadow" fill="#000" fill-opacity=".16"/>
+          <rect id="pageRect" x="0" y="0" style="fill:var(--paper)"/>
+          <rect id="gridRect" fill="url(#gridPat)"/>
+          <g id="layer"></g>
+          <g id="overlay"></g>
+        </g>
+      </svg>
+      <textarea id="editor" spellcheck="false"></textarea>
+      <div id="pauseNote">Paused. Set the properties on the right, then press Tab to keep drawing.</div>
+      <div id="qmLayer"></div>
+    </div>
+  </main>
+
+  <aside id="props" aria-label="Properties">
+    <div id="propsBody"></div>
+  </aside>
+
+  <footer id="status">
+    <span>X <b id="stX">0</b> Y <b id="stY">0</b> mm</span>
+    <span id="stSel"></span>
+    <span id="stPage"></span>
+    <span id="stHint">Ctrl + wheel or Ctrl + right-drag zooms. Right-drag or hold Space and drag to pan.</span>
+    <span id="credit">Designed By TunaBoy</span>
+  </footer>
+</div>
+<div id="toast" role="status"></div>
+<div id="filterPop" class="pop" hidden></div>
+<div id="gridPop" class="pop" hidden></div>
+
+<script>
+(() => {
+'use strict';
+const $ = s => document.querySelector(s);
+const PT = 0.352778;            // mm per typographic point
+const PXMM = 96 / 25.4;         // CSS px per mm at 100 %
+const F = n => +(+n).toFixed(3);
+const fmt = n => { const s = (Math.round(n * 100) / 100).toFixed(2); return s.replace(/\.?0+$/, ''); };
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+
+/* ───────────── symbol drawing primitives (local mm coordinates) ───────────── */
+const NF = 'fill="none"';
+const FC = 'fill="currentColor" stroke="none"';
+const tl = (x0, y, l, a) => `<path ${NF} d="M${F(x0)} ${F(y)}q${F(l / 4)} ${F(-a)} ${F(l / 2)} 0t${F(l / 2)} 0"/>`;
+const ln = (x1, y1, x2, y2) => `<path ${NF} d="M${F(x1)} ${F(y1)}L${F(x2)} ${F(y2)}"/>`;
+const rc = (w, h, rx = 0, x = 0, y = 0) => `<rect x="${F(x)}" y="${F(y)}" width="${F(w)}" height="${F(h)}"${rx ? ` rx="${F(rx)}"` : ''}/>`;
+const ci = (cx, cy, r, extra = '') => `<circle cx="${F(cx)}" cy="${F(cy)}" r="${F(r)}" ${extra}/>`;
+const pg = (pts, extra = '') => `<polygon points="${pts.map(p => F(p[0]) + ',' + F(p[1])).join(' ')}" ${extra}/>`;
+const P = d => `<path ${NF} d="${d.replace(/-?\d*\.\d{4,}/g, m => F(m))}"/>`;
+const B0 = d => `<path d="${d.replace(/-?\d*\.\d{4,}/g, m => F(m))}"/>`;
+const txt = (x, y, size, s) => `<text x="${F(x)}" y="${F(y)}" font-size="${F(size)}" text-anchor="middle" dominant-baseline="central" ${FC} font-family="'IBM Plex Sans',Arial,sans-serif">${s}</text>`;
+function head(tx, ty, fx, fy, L) {
+  const dx = tx - fx, dy = ty - fy, d = Math.hypot(dx, dy) || 1, ux = dx / d, uy = dy / d;
+  const bx = tx - ux * L, by = ty - uy * L, w = L * .38;
+  return pg([[tx, ty], [bx - uy * w, by + ux * w], [bx + uy * w, by - ux * w]], FC);
+}
+const leads = (w, h, a, b, cy = .5) => P(`M0 ${h * cy}H${w * a}M${w * b} ${h * cy}H${w}`);
+function zigH(x0, x1, cy, a, n = 6) { let d = ''; for (let i = 0; i < n; i++) d += `L${x0 + (i + .5) * (x1 - x0) / n} ${cy + (i % 2 ? a : -a)}`; return d + `L${x1} ${cy}`; }
+function zigV(x, y0, y1, a, n = 6) { let d = ''; for (let i = 0; i < n; i++) d += `L${x + (i % 2 ? a : -a)} ${y0 + (i + .5) * (y1 - y0) / n}`; return d + `L${x} ${y1}`; }
+function humpsH(x0, x1, y, n, ry) { const d = (x1 - x0) / n; let s = `M${x0} ${y}`; for (let i = 0; i < n; i++) s += `a${d / 2} ${ry} 0 0 1 ${d} 0`; return s; }
+function humpsV(x, y0, y1, n, rx, sweep) { const d = (y1 - y0) / n; let s = `M${x} ${y0}`; for (let i = 0; i < n; i++) s += `a${rx} ${d / 2} 0 0 ${sweep} 0 ${d}`; return s; }
+const filt = cross => (w, h) => {
+  let s = rc(w, h); const l = w * .46, x0 = w * .27, a = Math.min(h * .07, l * .14);
+  [.28, .5, .72].forEach((yy, i) => { const y = h * yy; s += tl(x0, y, l, a); if (cross.includes(i)) s += ln(w * .4, y + h * .09, w * .6, y - h * .09); });
+  return s;
+};
+const oscD = (w, h) => { const m = Math.min(w, h); return ci(w / 2, h / 2, m / 2) + tl(w / 2 - m * .26, h / 2, m * .52, m * .13); };
+const attD = (w, h) => rc(w, h) + P(`M${w * .12} ${h / 2}H${w * .25}` + zigH(w * .25, w * .75, h / 2, h * .17) + `H${w * .88}`);
+const icD = (w, h) => {
+  const p = Math.min(w, h) * .09; let d = '';
+  const nx = Math.max(2, Math.round((w - 2 * p) / 2.5)), ny = Math.max(2, Math.round((h - 2 * p) / 2.5));
+  for (let i = 0; i < nx; i++) { const x = p + (i + .5) * (w - 2 * p) / nx; d += `M${x} 0V${p}M${x} ${h - p}V${h}`; }
+  for (let i = 0; i < ny; i++) { const y = p + (i + .5) * (h - 2 * p) / ny; d += `M0 ${y}H${p}M${w - p} ${y}H${w}`; }
+  return P(d) + rc(w - 2 * p, h - 2 * p, 0, p, p) + ci(p * 2.1, p * 2.1, p * .38, FC);
+};
+const pentD = (w, h) => pg([[0, 0], [w * .78, 0], [w, h / 2], [w * .78, h], [0, h]]);
+const diodeB = (w, h, cy = .5, hh = .35) => leads(w, h, .35, .65, cy) + pg([[w * .35, h * (cy - hh)], [w * .35, h * (cy + hh)], [w * .65, h * cy]], FC);
+const bar = (w, h, x, cy = .5, hh = .35) => P(`M${w * x} ${h * (cy - hh)}V${h * (cy + hh)}`);
+const bjt = pnp => (w, h) => {
+  const r = Math.min(w * .46, h * .4), bx = w * .38, ex = w * .7, L = Math.min(w, h) * .17;
+  let s = ci(w * .54, h / 2, r) + P(`M0 ${h / 2}H${bx}M${bx} ${h * .3}V${h * .7}M${bx} ${h * .4}L${ex} ${h * .22}V0M${bx} ${h * .6}L${ex} ${h * .78}V${h}`);
+  return s + (pnp ? head(bx + (ex - bx) * .3, h * .6 + h * .18 * .3, ex, h * .78, L) : head(bx + (ex - bx) * .85, h * .6 + h * .18 * .85, bx, h * .6, L));
+};
+const mos = pch => (w, h) => {
+  const gx = w * .3, cx = w * .42, dx = w * .7, L = Math.min(w, h) * .24;
+  let s = P(`M0 ${h / 2}H${gx}M${gx} ${h * .28}V${h * .72}M${cx} ${h * .22}V${h * .36}M${cx} ${h * .43}V${h * .57}M${cx} ${h * .64}V${h * .78}M${cx} ${h * .29}H${dx}V0M${cx} ${h * .71}H${dx}V${h}`);
+  if (pch) s += P(`M${cx} ${h / 2}H${dx - L * .9}M${dx} ${h / 2}V${h * .71}`) + head(dx, h / 2, cx, h / 2, L);
+  else s += P(`M${cx + L * .9} ${h / 2}H${dx}V${h * .71}`) + head(cx, h / 2, dx, h / 2, L);
+  return s;
+};
+const gIn = (w, h, x) => P(`M0 ${h * .3}H${w * x}M0 ${h * .7}H${w * x}`);
+const gOut = (w, h, x) => P(`M${x} ${h / 2}H${w}`);
+const andBody = (w, h, e) => B0(`M${w * .15} 0H${w * (e - .35)}A${w * .35} ${h / 2} 0 0 1 ${w * (e - .35)} ${h}H${w * .15}Z`);
+const orBody = (w, h, x0, e) => B0(`M${w * x0} 0Q${w * (x0 + e) / 2} 0 ${w * e} ${h / 2}Q${w * (x0 + e) / 2} ${h} ${w * x0} ${h}Q${w * (x0 + .18)} ${h / 2} ${w * x0} 0Z`);
+const bubR = (w, h) => Math.min(w * .05, h * .1);
+const srcC = (w, h) => { const r = Math.min(w * .48, h * .3); return { r, cy: h / 2, c: ci(w / 2, h / 2, r) + P(`M${w / 2} 0V${h / 2 - r}M${w / 2} ${h / 2 + r}V${h}`) }; };
+
+const DRAW = {
+  /* basic */
+  rect: (w, h) => rc(w, h),
+  circle: (w, h) => ci(w / 2, h / 2, Math.min(w, h) / 2),
+  rrect: (w, h) => rc(w, h, Math.min(w, h) * .18),
+  ellipse: (w, h) => `<ellipse cx="${F(w / 2)}" cy="${F(h / 2)}" rx="${F(w / 2)}" ry="${F(h / 2)}"/>`,
+  triangle: (w, h) => pg([[w / 2, 0], [w, h], [0, h]]),
+  diamond: (w, h) => pg([[w / 2, 0], [w, h / 2], [w / 2, h], [0, h / 2]]),
+  hex: (w, h) => pg([[w * .25, 0], [w * .75, 0], [w, h / 2], [w * .75, h], [w * .25, h], [0, h / 2]]),
+  text: null,
+  /* RF */
+  amp: (w, h) => pg([[0, 0], [w, h / 2], [0, h]]),
+  vga: (w, h) => pg([[0, 0], [w, h / 2], [0, h]]) + ln(w * .12, h * .92, w * .58, h * .18) + head(w * .66, h * .04, w * .12, h * .92, Math.min(w, h) * .2),
+  mixer: (w, h) => { const m = Math.min(w, h), r = m / 2, k = r * .707; return ci(w / 2, h / 2, r) + ln(w / 2 - k, h / 2 - k, w / 2 + k, h / 2 + k) + ln(w / 2 - k, h / 2 + k, w / 2 + k, h / 2 - k); },
+  bpf: filt([0, 2]), lpf: filt([0]), hpf: filt([2]), bsf: filt([1]),
+  osc: oscD,
+  vco: (w, h) => { const m = Math.min(w, h), c = m * .36; return oscD(w, h) + ln(w / 2 - c, h / 2 + c, w / 2 + c * .7, h / 2 - c * .7) + head(w / 2 + c, h / 2 - c, w / 2, h / 2, m * .17); },
+  mult: (w, h) => rc(w, h) + txt(w / 2, h / 2, Math.min(w, h) * .5, '×N'),
+  div: (w, h) => rc(w, h) + txt(w / 2, h / 2, Math.min(w, h) * .5, '÷N'),
+  att: attD,
+  vatt: (w, h) => attD(w, h) + ln(w * .3, h * .88, w * .66, h * .2) + head(w * .72, h * .08, w * .3, h * .88, Math.min(w, h) * .2),
+  phase: (w, h) => { const m = Math.min(w, h); return rc(w, h) + `<text x="${F(w / 2)}" y="${F(h / 2)}" font-size="${F(m * .62)}" text-anchor="middle" dominant-baseline="central" ${FC} font-family="Georgia,'Times New Roman',serif" font-style="italic">φ</text>`; },
+  sw: (w, h) => { const r = Math.min(w, h) * .06; return ln(0, h / 2, w * .28, h / 2) + ci(w * .28 + r, h / 2, r, NF) + ln(w * .28 + r * 1.7, h / 2 - r * .7, w * .72, h * .3) + ci(w * .75, h * .25, r, NF) + ci(w * .75, h * .75, r, NF) + ln(w * .75 + r, h * .25, w, h * .25) + ln(w * .75 + r, h * .75, w, h * .75); },
+  split: (w, h) => rc(w, h) + P(`M0 ${h / 2}H${w * .38}L${w * .62} ${h * .25}H${w}M${w * .38} ${h / 2}L${w * .62} ${h * .75}H${w}`),
+  coupler: (w, h) => rc(w, h) + ln(0, h * .3, w, h * .3) + P(`M${w * .22} ${h * .7}H${w}M${w * .22} ${h * .56}V${h * .84}`),
+  hybrid: (w, h) => rc(w, h) + P(`M0 ${h * .25}H${w * .16}M0 ${h * .75}H${w * .16}M${w} ${h * .25}H${w * .84}M${w} ${h * .75}H${w * .84}`) + txt(w / 2, h / 2, Math.min(w, h) * .28, '90°'),
+  circ: (w, h) => {
+    const m = Math.min(w, h), cx = w / 2, cy = h / 2, r = m * .27, a1 = 160 * Math.PI / 180, a2 = 20 * Math.PI / 180;
+    const x1 = cx + r * Math.cos(a1), y1 = cy + r * Math.sin(a1), x2 = cx + r * Math.cos(a2), y2 = cy + r * Math.sin(a2), tx = -Math.sin(a2), ty = Math.cos(a2);
+    return ci(cx, cy, m / 2) + `<path ${NF} d="M${F(x1)} ${F(y1)}A${F(r)} ${F(r)} 0 1 1 ${F(x2)} ${F(y2)}"/>` + head(x2 + tx * m * .07, y2 + ty * m * .07, x2 - tx * m * .1, y2 - ty * m * .1, m * .16);
+  },
+  iso: (w, h) => rc(w, h) + ln(w * .18, h / 2, w * .68, h / 2) + head(w * .82, h / 2, w * .5, h / 2, Math.min(w, h) * .32),
+  limiter: (w, h) => rc(w, h) + P(`M0 ${h / 2}H${w}M${w * .4} ${h / 2}V${h * .6}M${w * .4} ${h * .78}V${h * .9}M${w * .6} ${h / 2}V${h * .6}M${w * .6} ${h * .78}V${h * .9}M${w * .28} ${h * .9}H${w * .72}M${w * .32} ${h * .78}H${w * .48}M${w * .52} ${h * .6}H${w * .68}`) + pg([[w * .32, h * .6], [w * .48, h * .6], [w * .4, h * .78]], FC) + pg([[w * .52, h * .78], [w * .68, h * .78], [w * .6, h * .6]], FC),
+  det: (w, h) => rc(w, h) + P(`M${w * .12} ${h / 2}H${w * .38}M${w * .6} ${h / 2}H${w * .88}M${w * .6} ${h * .3}V${h * .7}`) + pg([[w * .38, h * .3], [w * .38, h * .7], [w * .6, h * .5]], FC),
+  biast: (w, h) => rc(w, h) + P(`M0 ${h * .4}H${w * .42}M${w * .42} ${h * .22}V${h * .58}M${w * .54} ${h * .22}V${h * .58}M${w * .54} ${h * .4}H${w}` + humpsV(w * .75, h * .4, h * .85, 3, w * .07, 1) + `V${h}`),
+  dcblock: (w, h) => rc(w, h) + P(`M0 ${h / 2}H${w * .44}M${w * .44} ${h * .25}V${h * .75}M${w * .56} ${h * .25}V${h * .75}M${w * .56} ${h / 2}H${w}`),
+  term: (w, h) => P(`M${w / 2} 0V${h * .12}` + zigV(w / 2, h * .12, h * .62, w * .28) + `V${h * .72}M0 ${h * .72}H${w}M${w * .2} ${h * .85}H${w * .8}M${w * .4} ${h * .98}H${w * .6}`),
+  ant: (w, h) => P(`M${w / 2} ${h}V0M0 0L${w / 2} ${h * .45}L${w} 0Z`),
+  /* passives */
+  res: (w, h) => P(`M0 ${h / 2}H${w * .2}` + zigH(w * .2, w * .8, h / 2, h * .38) + `H${w}`),
+  resiec: (w, h) => leads(w, h, .2, .8) + rc(w * .6, h * .46, 0, w * .2, h * .27),
+  pot: (w, h) => leads(w, h, .2, .8, .6) + rc(w * .6, h * .3, 0, w * .2, h * .45) + ln(w / 2, 0, w / 2, h * .25) + head(w / 2, h * .43, w / 2, 0, Math.min(w, h) * .2),
+  cap: (w, h) => P(`M0 ${h / 2}H${w * .42}M${w * .42} ${h * .12}V${h * .88}M${w * .58} ${h * .12}V${h * .88}M${w * .58} ${h / 2}H${w}`),
+  polcap: (w, h) => P(`M0 ${h / 2}H${w * .42}M${w * .42} ${h * .12}V${h * .88}M${w * .62} ${h * .12}Q${w * .52} ${h / 2} ${w * .62} ${h * .88}M${w * .57} ${h / 2}H${w}M${w * .2} ${h * .22}H${w * .32}M${w * .26} ${h * .13}V${h * .31}`),
+  varcap: (w, h) => DRAW.cap(w, h) + ln(w * .25, h * .92, w * .7, h * .15) + head(w * .78, h * .03, w * .25, h * .92, Math.min(w, h) * .2),
+  ind: (w, h) => { const x0 = w * .12, x1 = w * .88, ry = Math.min((x1 - x0) / 8, h * .45); return P(`M0 ${h / 2}H${x0}` + humpsH(x0, x1, h / 2, 4, ry) + `H${w}`); },
+  indcore: (w, h) => { const x0 = w * .12, x1 = w * .88, ry = Math.min((x1 - x0) / 8, h * .3); return P(`M0 ${h / 2}H${x0}` + humpsH(x0, x1, h / 2, 4, ry) + `H${w}M${x0} ${h * .06}H${x1}M${x0} ${h * .14}H${x1}`); },
+  bead: (w, h) => leads(w, h, .3, .7) + pg([[w * .3, h * .85], [w * .44, h * .15], [w * .7, h * .15], [w * .56, h * .85]], FC),
+  xfmr: (w, h) => { const d = h * .8 / 4, rx = Math.min(d / 2, w * .14); return P(`M0 ${h * .1}H${w * .3}M0 ${h * .9}H${w * .3}M${w} ${h * .1}H${w * .7}M${w} ${h * .9}H${w * .7}M${w * .47} ${h * .06}V${h * .94}M${w * .53} ${h * .06}V${h * .94}` + humpsV(w * .3, h * .1, h * .9, 4, rx, 1) + humpsV(w * .7, h * .1, h * .9, 4, rx, 0)); },
+  xtal: (w, h) => P(`M0 ${h / 2}H${w * .3}M${w * .3} ${h * .18}V${h * .82}M${w * .7} ${h * .18}V${h * .82}M${w * .7} ${h / 2}H${w}`) + rc(w * .24, h * .76, 0, w * .38, h * .12),
+  fuse: (w, h) => leads(w, h, .2, .8) + rc(w * .6, h * .5, 0, w * .2, h * .25) + ln(w * .2, h / 2, w * .8, h / 2),
+  /* semiconductors */
+  diode: (w, h) => diodeB(w, h) + bar(w, h, .65),
+  zener: (w, h) => diodeB(w, h) + P(`M${w * .58} ${h * .08}L${w * .65} ${h * .15}V${h * .85}L${w * .72} ${h * .92}`),
+  schottky: (w, h) => diodeB(w, h) + P(`M${w * .57} ${h * .25}V${h * .15}H${w * .65}V${h * .85}H${w * .73}V${h * .75}`),
+  varactor: (w, h) => P(`M0 ${h / 2}H${w * .35}M${w * .73} ${h / 2}H${w}`) + pg([[w * .35, h * .15], [w * .35, h * .85], [w * .65, h * .5]], FC) + bar(w, h, .65) + bar(w, h, .73),
+  led: (w, h) => { const L = Math.min(w, h) * .16; return diodeB(w, h, 2 / 3, .26) + bar(w, h, .65, 2 / 3, .26) + ln(w * .46, h * .32, w * .58, h * .1) + head(w * .62, h * .03, w * .46, h * .32, L) + ln(w * .62, h * .36, w * .74, h * .14) + head(w * .78, h * .07, w * .62, h * .36, L); },
+  npn: bjt(false), pnp: bjt(true), nmos: mos(false), pmos: mos(true),
+  opamp: (w, h) => P(`M0 ${h * .3}H${w * .15}M0 ${h * .7}H${w * .15}M${w * .85} ${h / 2}H${w}`) + pg([[w * .15, 0], [w * .85, h / 2], [w * .15, h]]) + P(`M${w * .21} ${h * .3}H${w * .3}M${w * .21} ${h * .7}H${w * .3}M${w * .255} ${h * .64}V${h * .76}`),
+  /* logic */
+  buf: (w, h) => P(`M0 ${h / 2}H${w * .15}M${w * .8} ${h / 2}H${w}`) + pg([[w * .15, h * .05], [w * .8, h / 2], [w * .15, h * .95]]),
+  inv: (w, h) => { const r = bubR(w, h); return P(`M0 ${h / 2}H${w * .15}`) + gOut(w, h, w * .74 + 2 * r) + pg([[w * .15, h * .05], [w * .74, h / 2], [w * .15, h * .95]]) + ci(w * .74 + r, h / 2, r); },
+  and: (w, h) => gIn(w, h, .15) + andBody(w, h, .8) + gOut(w, h, w * .8),
+  nand: (w, h) => { const r = bubR(w, h); return gIn(w, h, .15) + andBody(w, h, .74) + ci(w * .74 + r, h / 2, r) + gOut(w, h, w * .74 + 2 * r); },
+  or: (w, h) => gIn(w, h, .2) + orBody(w, h, .12, .8) + gOut(w, h, w * .8),
+  nor: (w, h) => { const r = bubR(w, h); return gIn(w, h, .2) + orBody(w, h, .12, .74) + ci(w * .74 + r, h / 2, r) + gOut(w, h, w * .74 + 2 * r); },
+  xor: (w, h) => gIn(w, h, .15) + P(`M${w * .08} 0Q${w * .26} ${h / 2} ${w * .08} ${h}`) + orBody(w, h, .18, .82) + gOut(w, h, w * .82),
+  /* sources */
+  battery: (w, h) => P(`M0 ${h / 2}H${w * .4}M${w * .4} ${h * .12}V${h * .88}M${w * .6} ${h / 2}H${w}M${w * .15} ${h * .2}H${w * .29}M${w * .22} ${h * .13}V${h * .27}`) + rc(w * .06, h * .4, 0, w * .57, h * .3).replace('/>', ' fill="currentColor" stroke="none"/>'),
+  vdc: (w, h) => { const { r, cy, c } = srcC(w, h), k = r * .22; return c + P(`M${w / 2 - k} ${cy - r * .45}H${w / 2 + k}M${w / 2} ${cy - r * .45 - k}V${cy - r * .45 + k}M${w / 2 - k} ${cy + r * .45}H${w / 2 + k}`); },
+  vac: (w, h) => { const { r, cy, c } = srcC(w, h); return c + tl(w / 2 - r * .55, cy, r * 1.1, r * .3); },
+  isrc: (w, h) => { const { r, cy, c } = srcC(w, h); return c + ln(w / 2, cy + r * .6, w / 2, cy - r * .2) + head(w / 2, cy - r * .65, w / 2, cy + r * .6, r * .4); },
+  vcc: (w, h) => P(`M${w / 2} ${h}V${h * .25}M${w * .1} ${h * .25}H${w * .9}`),
+  gnd: (w, h) => P(`M${w / 2} 0V${h * .4}M0 ${h * .4}H${w}M${w * .2} ${h * .66}H${w * .8}M${w * .4} ${h * .92}H${w * .6}`),
+  chassis: (w, h) => P(`M${w / 2} 0V${h * .4}M${w * .08} ${h * .4}H${w * .92}M${w * .25} ${h * .4}L${w * .1} ${h * .9}M${w * .55} ${h * .4}L${w * .4} ${h * .9}M${w * .85} ${h * .4}L${w * .7} ${h * .9}`),
+  /* mixed signal & connectors */
+  adc: pentD, dac: pentD, ic: icD,
+  tcxo: (w, h) => rc(w, h) + tl(w * .3, h / 2, w * .4, h * .13),
+  sma: (w, h) => { const m = Math.min(w, h); return rc(w, h, m * .1) + ci(w / 2, h / 2, m * .34) + ci(w / 2, h / 2, m * .12, FC); },
+  spst: (w, h) => { const r = Math.min(w, h) * .07, y = h * .8; return P(`M0 ${y}H${w * .25 - r}M${w * .75 + r} ${y}H${w}M${w * .25 + r * .7} ${y - r * .7}L${w * .72} ${h * .2}`) + ci(w * .25, y, r, NF) + ci(w * .75, y, r, NF); },
+  push: (w, h) => { const r = Math.min(w, h) * .07, y = h * .8; return P(`M0 ${y}H${w * .25 - r}M${w * .75 + r} ${y}H${w}M${w * .15} ${h * .5}H${w * .85}M${w / 2} ${h * .5}V${h * .1}M${w * .38} ${h * .1}H${w * .62}`) + ci(w * .25, y, r, NF) + ci(w * .75, y, r, NF); },
+  tp: (w, h) => { const r = Math.min(w * .18, h * .35); return P(`M0 ${h / 2}H${w - 2 * r}`) + ci(w - r, h / 2, r, NF); },
+  /* board */
+  pcb: (w, h) => rc(w, h, Math.min(2, Math.min(w, h) * .06)),
+  hole: (w, h) => { const m = Math.min(w, h); return ci(w / 2, h / 2, m / 2) + ci(w / 2, h / 2, m / 2 * .53, 'fill="#ffffff"'); },
+  keepout: (w, h) => {
+    let d = '';
+    for (let x = -h + 2.5; x < w; x += 2.5) { let x1 = x, y1 = h, x2 = x + h, y2 = 0; if (x1 < 0) { y1 = h + x1; x1 = 0; } if (x2 > w) { y2 = x2 - w; x2 = w; } if (y1 > y2) d += `M${F(x1)} ${F(y1)}L${F(x2)} ${F(y2)}`; }
+    return rc(w, h) + `<path ${NF} stroke-width="0.15" d="${d}"/>`;
+  },
+  header: (w, h) => {
+    const n = Math.max(1, Math.round(w / 2.54)), p = w / n, r = Math.min(p, h) * .27; let s = rc(w, h);
+    for (let i = 0; i < n; i++) { const cx = (i + .5) * p; s += i === 0 ? rc(r * 2, r * 2, 0, cx - r, h / 2 - r).replace('/>', ' fill="none"/>') : ci(cx, h / 2, r, NF); }
+    return s;
+  }
+};
+
+/* ───────────── component library (shapes only, no default text) ───────────── */
+const LO = { lp: 'below' }, HI = { lp: 'above' }, NOFILL = { fillOn: false };
+const T2 = [[0, .5], [1, .5]];
+const LIB = [
+  { t: 'rect', n: 'Rectangle', c: 'basic', w: 20, h: 12 },
+  { t: 'rrect', n: 'Rounded rectangle', c: 'basic', w: 20, h: 12 },
+  { t: 'circle', n: 'Circle', c: 'basic', w: 12, h: 12, square: true },
+  { t: 'ellipse', n: 'Ellipse', c: 'basic', w: 16, h: 12 },
+  { t: 'triangle', n: 'Triangle', c: 'basic', w: 14, h: 12 },
+  { t: 'diamond', n: 'Diamond', c: 'basic', w: 16, h: 12 },
+  { t: 'hex', n: 'Hexagon', c: 'basic', w: 16, h: 12 },
+  { t: 'text', n: 'Text', c: 'basic', w: 12, h: 4, st: { fillOn: false, strokeOn: false, ha: 'left', va: 'top', fs: 8 } },
+  { t: 'line', n: 'Line', c: 'basic', w: 20, h: 0, line: true, st: {} },
+  { t: 'arrowline', n: 'Arrow', c: 'basic', w: 20, h: 0, line: true, st: { endCap: 'arrow' } },
+  { t: 'darrow', n: 'Double arrow', c: 'basic', w: 20, h: 0, line: true, st: { startCap: 'arrow', endCap: 'arrow' } },
+  { t: 'dotline', n: 'Dot to arrow', c: 'basic', w: 20, h: 0, line: true, st: { startCap: 'dot', endCap: 'arrow' } },
+  { t: 'dashline', n: 'Dashed line', c: 'basic', w: 20, h: 0, line: true, st: { dash: 'dash' } },
+
+  { t: 'amp', n: 'Amplifier', c: 'rf', w: 10, h: 8, st: LO, ports: [[0, .5], [1, .5], [.5, .25], [.5, .75]] },
+  { t: 'vga', n: 'Variable gain amplifier', c: 'rf', w: 10, h: 8, st: LO, ports: [[0, .5], [1, .5], [.5, .25], [.5, .75]] },
+  { t: 'mixer', n: 'Mixer', c: 'rf', w: 8, h: 8, st: HI },
+  { t: 'bpf', n: 'Band-pass filter', c: 'rf', w: 12, h: 10, st: LO },
+  { t: 'lpf', n: 'Low-pass filter', c: 'rf', w: 12, h: 10, st: LO },
+  { t: 'hpf', n: 'High-pass filter', c: 'rf', w: 12, h: 10, st: LO },
+  { t: 'bsf', n: 'Band-stop filter', c: 'rf', w: 12, h: 10, st: LO },
+  { t: 'osc', n: 'Oscillator', c: 'rf', w: 8, h: 8, st: LO },
+  { t: 'vco', n: 'VCO', c: 'rf', w: 10, h: 10, st: LO },
+  { t: 'mult', n: 'Frequency multiplier', c: 'rf', w: 10, h: 8, st: LO },
+  { t: 'div', n: 'Frequency divider', c: 'rf', w: 10, h: 8, st: LO },
+  { t: 'att', n: 'Attenuator', c: 'rf', w: 12, h: 8, st: LO },
+  { t: 'vatt', n: 'Variable attenuator', c: 'rf', w: 12, h: 8, st: LO },
+  { t: 'phase', n: 'Phase shifter', c: 'rf', w: 10, h: 8, st: LO },
+  { t: 'sw', n: 'SPDT switch', c: 'rf', w: 10, h: 8, st: { lp: 'below', fillOn: false }, ports: [[0, .5], [1, .25], [1, .75]] },
+  { t: 'split', n: 'Power divider', c: 'rf', w: 12, h: 12, st: LO, ports: [[0, .5], [1, .25], [1, .75]] },
+  { t: 'coupler', n: 'Directional coupler', c: 'rf', w: 14, h: 10, st: LO, ports: [[0, .3], [1, .3], [1, .7]] },
+  { t: 'hybrid', n: '90° hybrid', c: 'rf', w: 12, h: 12, st: LO, ports: [[0, .25], [0, .75], [1, .25], [1, .75]] },
+  { t: 'circ', n: 'Circulator', c: 'rf', w: 10, h: 10, st: LO, ports: [[0, .5], [1, .5], [.5, 1]] },
+  { t: 'iso', n: 'Isolator', c: 'rf', w: 10, h: 8, st: LO, ports: T2 },
+  { t: 'limiter', n: 'Limiter', c: 'rf', w: 10, h: 8, st: LO, ports: T2 },
+  { t: 'det', n: 'Detector', c: 'rf', w: 10, h: 8, st: LO, ports: T2 },
+  { t: 'biast', n: 'Bias tee', c: 'rf', w: 12, h: 10, st: LO, ports: [[0, .4], [1, .4], [.75, 1]] },
+  { t: 'dcblock', n: 'DC block', c: 'rf', w: 10, h: 8, st: LO, ports: T2 },
+  { t: 'term', n: 'Termination', c: 'rf', w: 6, h: 10, st: { lp: 'right', fillOn: false }, ports: [[.5, 0]] },
+  { t: 'ant', n: 'Antenna', c: 'rf', w: 8, h: 10, st: { lp: 'right', fillOn: false }, ports: [[.5, 1]] },
+
+  { t: 'res', n: 'Resistor', c: 'passive', w: 10, h: 4, st: { lp: 'above', fillOn: false }, ports: T2 },
+  { t: 'resiec', n: 'Resistor (IEC)', c: 'passive', w: 10, h: 4, st: HI, ports: T2 },
+  { t: 'pot', n: 'Potentiometer', c: 'passive', w: 10, h: 10, st: LO, ports: [[0, .6], [1, .6], [.5, 0]] },
+  { t: 'cap', n: 'Capacitor', c: 'passive', w: 6, h: 6, st: { lp: 'above', fillOn: false }, ports: T2 },
+  { t: 'polcap', n: 'Polarized capacitor', c: 'passive', w: 6, h: 6, st: { lp: 'above', fillOn: false }, ports: T2 },
+  { t: 'varcap', n: 'Variable capacitor', c: 'passive', w: 6, h: 6, st: { lp: 'above', fillOn: false }, ports: T2 },
+  { t: 'ind', n: 'Inductor', c: 'passive', w: 10, h: 4, st: { lp: 'above', fillOn: false }, ports: T2 },
+  { t: 'indcore', n: 'Iron-core inductor', c: 'passive', w: 10, h: 6, st: { lp: 'above', fillOn: false }, ports: T2 },
+  { t: 'bead', n: 'Ferrite bead', c: 'passive', w: 8, h: 4, st: HI, ports: T2 },
+  { t: 'xfmr', n: 'Transformer', c: 'passive', w: 12, h: 10, st: { lp: 'below', fillOn: false }, ports: [[0, .1], [0, .9], [1, .1], [1, .9]] },
+  { t: 'xtal', n: 'Crystal', c: 'passive', w: 8, h: 6, st: HI, ports: T2 },
+  { t: 'fuse', n: 'Fuse', c: 'passive', w: 10, h: 4, st: HI, ports: T2 },
+
+  { t: 'diode', n: 'Diode', c: 'semi', w: 8, h: 4, st: HI, ports: T2 },
+  { t: 'zener', n: 'Zener diode', c: 'semi', w: 8, h: 4, st: HI, ports: T2 },
+  { t: 'schottky', n: 'Schottky diode', c: 'semi', w: 8, h: 4, st: HI, ports: T2 },
+  { t: 'varactor', n: 'Varactor', c: 'semi', w: 8, h: 4, st: HI, ports: T2 },
+  { t: 'led', n: 'LED', c: 'semi', w: 8, h: 6, st: LO, ports: [[0, 2 / 3], [1, 2 / 3]] },
+  { t: 'npn', n: 'NPN transistor', c: 'semi', w: 10, h: 12, st: { lp: 'right' }, ports: [[0, .5], [.7, 0], [.7, 1]] },
+  { t: 'pnp', n: 'PNP transistor', c: 'semi', w: 10, h: 12, st: { lp: 'right' }, ports: [[0, .5], [.7, 0], [.7, 1]] },
+  { t: 'nmos', n: 'N-channel MOSFET', c: 'semi', w: 10, h: 12, st: { lp: 'right', fillOn: false }, ports: [[0, .5], [.7, 0], [.7, 1]] },
+  { t: 'pmos', n: 'P-channel MOSFET', c: 'semi', w: 10, h: 12, st: { lp: 'right', fillOn: false }, ports: [[0, .5], [.7, 0], [.7, 1]] },
+  { t: 'opamp', n: 'Op-amp', c: 'semi', w: 14, h: 10, st: LO, ports: [[0, .3], [0, .7], [1, .5]] },
+
+  { t: 'buf', n: 'Buffer', c: 'logic', w: 12, h: 10, st: LO, ports: T2 },
+  { t: 'inv', n: 'Inverter', c: 'logic', w: 12, h: 10, st: LO, ports: T2 },
+  { t: 'and', n: 'AND', c: 'logic', w: 12, h: 10, st: LO, ports: [[0, .3], [0, .7], [1, .5]] },
+  { t: 'nand', n: 'NAND', c: 'logic', w: 12, h: 10, st: LO, ports: [[0, .3], [0, .7], [1, .5]] },
+  { t: 'or', n: 'OR', c: 'logic', w: 12, h: 10, st: LO, ports: [[0, .3], [0, .7], [1, .5]] },
+  { t: 'nor', n: 'NOR', c: 'logic', w: 12, h: 10, st: LO, ports: [[0, .3], [0, .7], [1, .5]] },
+  { t: 'xor', n: 'XOR', c: 'logic', w: 12, h: 10, st: LO, ports: [[0, .3], [0, .7], [1, .5]] },
+
+  { t: 'battery', n: 'Battery', c: 'source', w: 8, h: 8, st: { lp: 'above', fillOn: false }, ports: T2 },
+  { t: 'vdc', n: 'DC voltage source', c: 'source', w: 8, h: 12, st: { lp: 'right' }, ports: [[.5, 0], [.5, 1]] },
+  { t: 'vac', n: 'AC voltage source', c: 'source', w: 8, h: 12, st: { lp: 'right' }, ports: [[.5, 0], [.5, 1]] },
+  { t: 'isrc', n: 'Current source', c: 'source', w: 8, h: 12, st: { lp: 'right' }, ports: [[.5, 0], [.5, 1]] },
+  { t: 'vcc', n: 'Supply rail', c: 'source', w: 6, h: 5, st: { lp: 'above', fillOn: false }, ports: [[.5, 1]] },
+  { t: 'gnd', n: 'Ground', c: 'source', w: 6, h: 5, st: { fillOn: false }, ports: [[.5, 0]] },
+  { t: 'chassis', n: 'Chassis ground', c: 'source', w: 6, h: 5, st: { fillOn: false }, ports: [[.5, 0]] },
+
+  { t: 'adc', n: 'ADC', c: 'ms', w: 14, h: 10 },
+  { t: 'dac', n: 'DAC', c: 'ms', w: 14, h: 10 },
+  { t: 'ic', n: 'IC', c: 'ms', w: 20, h: 20 },
+  { t: 'tcxo', n: 'Crystal oscillator', c: 'ms', w: 10, h: 8, st: LO },
+  { t: 'sma', n: 'Coax connector', c: 'ms', w: 6, h: 6, st: LO },
+  { t: 'spst', n: 'Switch', c: 'ms', w: 10, h: 5, st: { lp: 'below', fillOn: false }, ports: [[0, .8], [1, .8]] },
+  { t: 'push', n: 'Push button', c: 'ms', w: 10, h: 5, st: { lp: 'below', fillOn: false }, ports: [[0, .8], [1, .8]] },
+  { t: 'tp', n: 'Test point', c: 'ms', w: 6, h: 4, st: { lp: 'right', fillOn: false }, ports: [[0, .5]] },
+
+  { t: 'pcb', n: 'PCB', c: 'board', w: 100, h: 60, st: { fill: '#e2eee3', stroke: '#2f6b45', sw: .35, fc: '#2f6b45', ha: 'left', va: 'top', fs: 9 } },
+  { t: 'hole', n: 'Mounting hole', c: 'board', w: 6, h: 6, st: { fill: '#e6cf8f', stroke: '#8a6d1f' } },
+  { t: 'header', n: 'Pin header', c: 'board', w: 12.7, h: 2.54, st: LO },
+  { t: 'keepout', n: 'Keep-out area', c: 'board', w: 20, h: 10, st: { fill: '#fbe4df', stroke: '#b5483a', fc: '#b5483a', fs: 6, ha: 'left', va: 'top' } }
+];
+LIB.forEach(l => { l.d = l.t; });
+const LIBM = Object.fromEntries(LIB.map(l => [l.t, l]));
+const CATS = [['basic', 'Basic shapes'], ['rf', 'RF and microwave'], ['passive', 'Passives'], ['semi', 'Semiconductors'], ['logic', 'Logic gates'], ['source', 'Sources and ground'], ['ms', 'Mixed signal and connectors'], ['board', 'Board layout']];
+const LEGACY = { lna: 'amp', pa: 'amp', pll: 'rect', ldo: 'rect', dcdc: 'rect', shield: 'rect', fpga: 'ic', mcu: 'ic' };
+const RESIZE = { bpf: [12, 9], lpf: [12, 9], hpf: [12, 9], bsf: [12, 9], vco: [9, 9], att: [12, 7], vatt: [12, 7], iso: [10, 7], dcblock: [10, 7], tcxo: [10, 7], coupler: [14, 8], split: [12, 10], opamp: [14, 12], buf: [12, 8], inv: [12, 8], and: [12, 8], nand: [12, 8], or: [12, 8], nor: [12, 8], xor: [12, 8], pot: [10, 7], led: [8, 7], spst: [10, 6], push: [10, 7], xfmr: [12, 12], diode: [8, 5], zener: [8, 5], schottky: [8, 5], varactor: [8, 5] };
+function normalize(list) {
+  list.forEach(o => {
+    if (o.type === 'shape' && RESIZE[o.t] && LIBM[o.t]) {
+      const [ow, oh] = RESIZE[o.t], L = LIBM[o.t], sw = o.rot === 90 || o.rot === 270;
+      const bw = sw ? o.h : o.w, bh = sw ? o.w : o.h;
+      if (Math.abs(bw - ow) < 1e-6 && Math.abs(bh - oh) < 1e-6) { if (sw) { o.w = L.h; o.h = L.w; } else { o.w = L.w; o.h = L.h; } }
+    }
+    if (o.type === 'shape') { if (LEGACY[o.t]) o.t = LEGACY[o.t]; if (!LIBM[o.t] || LIBM[o.t].line) o.t = 'rect'; if (o.t === 'pcb' && o.lock && !o.lockSet) o.lock = false; }
+    else if (o.type === 'wire' && o.style.arrow !== undefined) { const a = o.style.arrow; o.style.endCap = (a === 'end' || a === 'both') ? 'arrow' : 'none'; o.style.startCap = (a === 'start' || a === 'both') ? 'arrow' : 'none'; delete o.style.arrow; }
+    if (o.type === 'wire') { o.style = Object.assign({ fc: o.style.stroke, fs: 7, lauto: true, lpos: 'above', lgap: .6 }, o.style); if (o.label == null) o.label = ''; }
+    if (o.type === 'dim' && !o.style.route) o.style.route = 'straight';
+  });
+  return list;
+}
+const DEFP = [[0, .5], [1, .5], [.5, 0], [.5, 1]];
+const DEF_STYLE = { fill: '#ffffff', fillOn: true, stroke: '#1f2933', strokeOn: true, sw: .25, dash: 'solid', op: 1, font: "'IBM Plex Sans', Arial, sans-serif", fs: 8, fc: '#1f2933', b: false, i: false, u: false, ha: 'center', va: 'middle', lp: 'in' };
+const WIRE_STYLE = { stroke: '#1f2933', sw: .25, dash: 'solid', startCap: 'none', endCap: 'arrow', as: 1.4, route: 'ortho', fc: '#1f2933', fs: 7, lauto: true, lpos: 'above', lgap: .6 };
+const LINE_STYLE = { stroke: '#1f2933', sw: .25, dash: 'solid', startCap: 'none', endCap: 'none', as: 1.4, route: 'straight', fc: '#1f2933', fs: 7, lauto: true, lpos: 'above', lgap: .6 };
+const DIM_STYLE = { stroke: '#2a62a8', fc: '#2a62a8', sw: .18, fs: 7, dec: 1, off: .8, as: 1.3, route: 'straight', font: "'IBM Plex Sans', Arial, sans-serif" };
+const FONTS = [["'IBM Plex Sans', Arial, sans-serif", 'IBM Plex Sans'], ['Arial, Helvetica, sans-serif', 'Arial'], ["'Times New Roman', Times, serif", 'Times New Roman'], ["'Courier New', Courier, monospace", 'Courier New'], ['Consolas, Menlo, monospace', 'Consolas']];
+const SWATCH = ['#ffffff', '#1f2933', '#6b7785', '#c9d1d9', '#2a62a8', '#d6e6f7', '#2f6b45', '#e2eee3', '#b5483a', '#fbe4df', '#b8860b', '#fdf1cf', '#6a4c93', '#ece3f5'];
+
+/* ───────────── state ───────────── */
+let objs = [], sel = new Set(), seq = 1;
+const view = { z: 4, px: 60, py: 60 };
+let tool = 'select', showGrid = true, snapOn = true, step = 1;
+let lastTap = null, placing = null, placeRot = 0, poly = null, paused = false, qm = null, measures = [];
+const lastStyle = {};
+/* explicit vertex list for lines and dimensions (connectors: just the two ends) */
+function vertsOf(o) { return o.type === 'wire' && o.kind !== 'line' ? [endPos(o.a), endPos(o.b)] : [o.a, ...(o.mid || []), o.b]; }
+function setVert(o, i, q) { const n = (o.mid ? o.mid.length : 0) + 2; if (i === 0) o.a = q; else if (i === n - 1) o.b = q; else o.mid[i - 1] = q; }
+function segHandles(o) {
+  const out = [], mid = (p, q) => ({ x: (p.x + q.x) / 2, y: (p.y + q.y) / 2 }), cur = (p, q) => cursorAt(Math.atan2(q.y - p.y, q.x - p.x) * 180 / Math.PI + 90);
+  if (o.type === 'wire' && o.kind !== 'line') {
+    const pts = wirePts(o);
+    if (o.style.route === 'ortho' && pts.length === 4) { const m = mid(pts[1], pts[2]); out.push({ h: 'j', x: m.x, y: m.y, cur: cur(pts[1], pts[2]) }); }
+    else if (pts.length === 2 && !o.a.id && !o.b.id) { const m = mid(pts[0], pts[1]); out.push({ h: 's0', x: m.x, y: m.y, cur: cur(pts[0], pts[1]) }); }
+    return out;
+  }
+  const v = vertsOf(o);
+  const P = ptsOf(o), same = (p, q) => Math.abs(p.x - q.x) < 1e-9 && Math.abs(p.y - q.y) < 1e-9;
+  let k = 0;
+  for (let i = 1; i < v.length; i++) {
+    /* the drawn path between two corners may contain an orthogonal elbow: put the diamond at its arc-length middle */
+    const start = k; k = start + 1; while (k < P.length - 1 && !same(P[k], v[i])) k++;
+    const sub = P.slice(start, k + 1); let tot = 0; for (let j = 1; j < sub.length; j++) tot += Math.hypot(sub[j].x - sub[j - 1].x, sub[j].y - sub[j - 1].y);
+    let half = tot / 2, j = 1; while (j < sub.length - 1 && half > Math.hypot(sub[j].x - sub[j - 1].x, sub[j].y - sub[j - 1].y)) { half -= Math.hypot(sub[j].x - sub[j - 1].x, sub[j].y - sub[j - 1].y); j++; }
+    const A = sub[j - 1] || v[i - 1], B = sub[j] || v[i], l = Math.hypot(B.x - A.x, B.y - A.y) || 1;
+    out.push({ h: 's' + (i - 1), x: A.x + (B.x - A.x) * half / l, y: A.y + (B.y - A.y) * half / l, cur: cur(A, B) });
+  }
+  return out;
+}
+function togglePause() {
+  paused = !paused;
+  wrap.classList.toggle('paused', paused); $('#pauseNote').style.display = paused ? 'block' : 'none';
+  if (paused) { $('#props').classList.add('open'); renderPanel(); }
+  else {
+    if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
+    if (poly && objs.includes(poly.o)) lastStyle[poly.kind] = Object.assign({}, poly.o.style);
+    $('#props').classList.remove('open');
+  }
+}
+function cancelPoly() {
+  if (!poly) return;
+  if (paused) togglePause();
+  const o = poly.o; poly = null; hover = null;
+  objs = objs.filter(x => x !== o); sel.delete(o.id);
+  schedule(); renderPanel(); toast('Drawing cancelled');
+}
+function finishPoly(keep) {
+  if (!poly) return;
+  if (paused) togglePause();
+  const pl = poly, o = pl.o; poly = null; hover = null;
+  if (!objs.includes(o)) { schedule(); return; }
+  if (pl.conn) { if (!keep) { objs = objs.filter(x => x !== o); sel.clear(); schedule(); renderPanel(); return; } }
+  else { if (!keep) o.b = o.mid.length ? o.mid.pop() : { x: o.a.x, y: o.a.y }; if (!o.mid.length) delete o.mid; bakeOrtho(o); }
+  if (dimTotal(o) < .3) { objs = objs.filter(x => x !== o); sel.clear(); }
+  else { sel = new Set([o.id]); commit(); setTool('select'); }
+  schedule(); renderPanel();
+}
+let hist = [], hi = -1, clip = null, drag = null, spaceDown = false, spaceUsed = false, hover = null, cursorW = null;
+const uid = () => 'o' + Date.now().toString(36) + (seq++).toString(36);
+const byId = id => objs.find(o => o.id === id);
+const selected = () => objs.filter(o => sel.has(o.id));
+
+const svg = $('#cv'), world = $('#world'), layer = $('#layer'), overlay = $('#overlay'), wrap = $('#cvwrap');
+const rx = $('#rulerX'), ry = $('#rulerY'), editor = $('#editor');
+
+/* ───────────── geometry helpers ───────────── */
+function rotUV(u, v, rot) {
+  if (rot === 90) return [1 - v, u];
+  if (rot === 180) return [1 - u, 1 - v];
+  if (rot === 270) return [v, 1 - u];
+  return [u, v];
+}
+function portsOf(o) { return ((LIBM[o.t] && LIBM[o.t].ports) || DEFP).map(([u, v]) => rotUV(u, v, o.rot || 0)); }
+function portPos(o, i) { const p = portsOf(o)[i] || [.5, .5]; return { x: o.x + p[0] * o.w, y: o.y + p[1] * o.h, u: p[0], v: p[1] }; }
+function endPos(e) { if (e.id) { const t = byId(e.id); if (t && t.type === 'shape') return portPos(t, e.port); } return { x: e.x, y: e.y }; }
+/* single resize arrow pointing along the given angle (degrees, screen coordinates) */
+function cursorAt(deg) { const a = ((deg % 180) + 180) % 180; return a < 22.5 || a >= 157.5 ? 'ew-resize' : a < 67.5 ? 'nwse-resize' : a < 112.5 ? 'ns-resize' : 'nesw-resize'; }
+/* orthogonal route through a line's corner points: every diagonal leg gets one elbow, alternating so legs never double back */
+function orthoPath(v) {
+  const out = [v[0]]; let lastH = null;
+  for (let i = 1; i < v.length; i++) {
+    const p = out[out.length - 1], q = v[i], dx = Math.abs(q.x - p.x), dy = Math.abs(q.y - p.y);
+    if (dx > 1e-9 && dy > 1e-9) { const hFirst = lastH === null ? dx >= dy : !lastH; out.push(hFirst ? { x: q.x, y: p.y } : { x: p.x, y: q.y }); lastH = !hFirst; }
+    else lastH = dy < 1e-9;
+    out.push(q);
+  }
+  return out;
+}
+function wirePts(o) {
+  const a = endPos(o.a), b = endPos(o.b);
+  if (o.kind === 'line' || (o.mid && o.mid.length)) { const v = [a, ...(o.mid || []).map(q => ({ x: q.x, y: q.y })), b]; return o.style.route === 'ortho' ? orthoPath(v) : v; }
+  if (o.style.route !== 'ortho') return [a, b];
+  const dir = (e, p, q) => {
+    if (e.id && byId(e.id)) { const pp = portPos(byId(e.id), e.port); return (pp.u < .001 || pp.u > .999) ? 'h' : 'v'; }
+    return Math.abs(q.x - p.x) >= Math.abs(q.y - p.y) ? 'h' : 'v';
+  };
+  const da = dir(o.a, a, b), db = dir(o.b, b, a);
+  let pts;
+  if (da === 'h' && db === 'h') { const mx = o.jt != null ? a.x + (b.x - a.x) * o.jt : (a.x + b.x) / 2; pts = [a, { x: mx, y: a.y }, { x: mx, y: b.y }, b]; }
+  else if (da === 'v' && db === 'v') { const my = o.jt != null ? a.y + (b.y - a.y) * o.jt : (a.y + b.y) / 2; pts = [a, { x: a.x, y: my }, { x: b.x, y: my }, b]; }
+  else if (da === 'h') pts = [a, { x: b.x, y: a.y }, b];
+  else pts = [a, { x: a.x, y: b.y }, b];
+  return pts.filter((p, i) => i === 0 || Math.hypot(p.x - pts[i - 1].x, p.y - pts[i - 1].y) > 1e-6);
+}
+function bboxOf(o) {
+  if (o.type === 'shape') return { x: o.x, y: o.y, w: o.w, h: o.h };
+  const pts = ptsOf(o);
+  const xs = pts.map(p => p.x), ys = pts.map(p => p.y);
+  const x = Math.min(...xs), y = Math.min(...ys);
+  return { x, y, w: Math.max(...xs) - x, h: Math.max(...ys) - y };
+}
+function unionBox(list) {
+  if (!list.length) return null;
+  let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+  list.forEach(o => { const b = bboxOf(o); x0 = Math.min(x0, b.x); y0 = Math.min(y0, b.y); x1 = Math.max(x1, b.x + b.w); y1 = Math.max(y1, b.y + b.h); });
+  return { x: x0, y: y0, w: x1 - x0, h: y1 - y0 };
+}
+function dashAttr(d, sw) {
+  if (d === 'dash') return ` stroke-dasharray="${F(Math.max(sw * 6, 1.2))} ${F(Math.max(sw * 4, .8))}"`;
+  if (d === 'dot') return ` stroke-dasharray="${F(Math.max(sw, .25))} ${F(Math.max(sw * 3, .7))}"`;
+  return '';
+}
+
+/* ───────────── rendering ───────────── */
+function labelText(o) { return (o.label || '').replace(/\{w\}/g, fmt(o.w)).replace(/\{h\}/g, fmt(o.h)); }
+function labelSVG(o, W, H0) {
+  const s = o.style, txt = labelText(o); if (!txt || (editing && editing.o === o)) return '';
+  const lines = txt.split('\n'), fs = s.fs * PT, lh = fs * 1.25, H = lines.length * lh, pad = Math.min(.8, H0 * .12, W * .12);
+  const lp = s.lp || 'in';
+  let x, top, anchor = s.ha === 'left' ? 'start' : s.ha === 'right' ? 'end' : 'middle';
+  if (lp === 'in') { x = s.ha === 'left' ? pad : s.ha === 'right' ? W - pad : W / 2; top = s.va === 'top' ? pad : s.va === 'bottom' ? H0 - pad - H : (H0 - H) / 2; }
+  else if (lp === 'below' || lp === 'above') { x = s.ha === 'left' ? 0 : s.ha === 'right' ? W : W / 2; top = lp === 'below' ? H0 + .5 : -.5 - H; }
+  else if (lp === 'right') { x = W + .8; top = (H0 - H) / 2; anchor = 'start'; }
+  else { x = -.8; top = (H0 - H) / 2; anchor = 'end'; }
+  let out = `<text font-family="${esc(s.font)}" font-size="${F(fs)}" fill="${s.fc}" stroke="none" text-anchor="${anchor}"${s.b ? ' font-weight="600"' : ''}${s.i ? ' font-style="italic"' : ''}${s.u ? ' text-decoration="underline"' : ''}>`;
+  lines.forEach((t, i) => { out += `<tspan x="${F(x)}" y="${F(top + i * lh + (lh - fs) / 2 + fs * .8)}">${esc(t) || ' '}</tspan>`; });
+  return out + '</text>';
+}
+function shapeSVG(o, exp) {
+  const L = LIBM[o.t] || LIBM.rect, s = o.style, rot = o.rot || 0, sw90 = rot === 90 || rot === 270;
+  const bw = sw90 ? o.h : o.w, bh = sw90 ? o.w : o.h;
+  const tr = rot === 90 ? `translate(${F(o.w)} 0) rotate(90)` : rot === 180 ? `translate(${F(o.w)} ${F(o.h)}) rotate(180)` : rot === 270 ? `translate(0 ${F(o.h)}) rotate(270)` : '';
+  const draw = DRAW[L.d];
+  let g = `<g${exp ? '' : ` data-id="${o.id}"${o.lock ? ' data-lock=""' : ''}${o.t === 'pcb' && !sel.has(o.id) ? ' data-bg=""' : ''}`} transform="translate(${F(o.x)} ${F(o.y)})"${s.op < 1 ? ` opacity="${s.op}"` : ''}>`;
+  if (!exp) g += `<rect class="hit" width="${F(o.w)}" height="${F(o.h)}" fill="transparent" stroke="none"/>`;
+  let inner = '';
+  if (draw) inner += `<g fill="${s.fillOn ? s.fill : 'none'}" stroke="${s.strokeOn ? s.stroke : 'none'}" stroke-width="${s.sw}"${dashAttr(s.dash, s.sw)} stroke-linejoin="round" stroke-linecap="round" color="${s.strokeOn ? s.stroke : s.fc}">${draw(bw, bh)}</g>`;
+  else if (s.fillOn || s.strokeOn) inner += `<rect width="${F(bw)}" height="${F(bh)}" fill="${s.fillOn ? s.fill : 'none'}" stroke="${s.strokeOn ? s.stroke : 'none'}" stroke-width="${s.sw}"${dashAttr(s.dash, s.sw)}/>`;
+  return g + (tr ? `<g transform="${tr}">${inner}</g>` : inner) + labelSVG(o, o.w, o.h) + '</g>';
+}
+function arrowPoly(tip, from, L, color) {
+  const dx = tip.x - from.x, dy = tip.y - from.y, d = Math.hypot(dx, dy) || 1, ux = dx / d, uy = dy / d, bx = tip.x - ux * L, by = tip.y - uy * L, w = L * .36;
+  return `<polygon points="${F(tip.x)},${F(tip.y)} ${F(bx - uy * w)},${F(by + ux * w)} ${F(bx + uy * w)},${F(by - ux * w)}" fill="${color}" stroke="none"/>`;
+}
+function shorten(p, q, d) { const dx = p.x - q.x, dy = p.y - q.y, l = Math.hypot(dx, dy); if (l < d * 1.2) return p; return { x: p.x - dx / l * d, y: p.y - dy / l * d }; }
+const CAPS = [['none', 'None'], ['arrow', 'Arrow'], ['open', 'Open arrow'], ['dot', 'Dot'], ['circle', 'Circle'], ['square', 'Square'], ['diamond', 'Diamond'], ['bar', 'Bar']];
+function capSVG(type, tip, from, L, color, sw) {
+  const dx = tip.x - from.x, dy = tip.y - from.y, d = Math.hypot(dx, dy) || 1, ux = dx / d, uy = dy / d, nx = -uy, ny = ux;
+  const Q = (a, b) => `${F(tip.x + ux * a + nx * b)},${F(tip.y + uy * a + ny * b)}`;
+  const fillP = pts => `<polygon points="${pts.join(' ')}" fill="${color}" stroke="none"/>`;
+  switch (type) {
+    case 'arrow': return fillP([Q(0, 0), Q(-L, L * .36), Q(-L, -L * .36)]);
+    case 'open': return `<polyline points="${Q(-L, L * .42)} ${Q(0, 0)} ${Q(-L, -L * .42)}" fill="none" stroke="${color}" stroke-width="${sw}" stroke-linecap="round" stroke-linejoin="round"/>`;
+    case 'dot': return `<circle cx="${F(tip.x)}" cy="${F(tip.y)}" r="${F(L * .3)}" fill="${color}" stroke="none"/>`;
+    case 'circle': return `<circle cx="${F(tip.x)}" cy="${F(tip.y)}" r="${F(L * .3)}" fill="#ffffff" stroke="${color}" stroke-width="${sw}"/>`;
+    case 'square': return fillP([Q(L * .25, L * .25), Q(L * .25, -L * .25), Q(-L * .25, -L * .25), Q(-L * .25, L * .25)]);
+    case 'diamond': return fillP([Q(0, 0), Q(-L * .5, L * .3), Q(-L, 0), Q(-L * .5, -L * .3)]);
+    case 'bar': return `<polyline points="${Q(0, L * .45)} ${Q(0, -L * .45)}" fill="none" stroke="${color}" stroke-width="${F(sw * 1.3)}" stroke-linecap="round"/>`;
+  }
+  return '';
+}
+const capInset = (t, L) => t === 'arrow' || t === 'diamond' ? L * .6 : t === 'circle' ? L * .3 : 0;
+function wireSVG(o, exp) {
+  const s = o.style, pts = wirePts(o).map(p => ({ x: p.x, y: p.y })), n = pts.length;
+  const raw = pts.map(p => F(p.x) + ',' + F(p.y)).join(' ');
+  let arrows = '';
+  if (n >= 2) {
+    const sc = s.startCap || 'none', ec = s.endCap || 'none', s0 = { ...pts[0] };
+    if (ec !== 'none') { arrows += capSVG(ec, pts[n - 1], pts[n - 2], s.as, s.stroke, s.sw); const k = capInset(ec, s.as); if (k) pts[n - 1] = shorten(pts[n - 1], pts[n - 2], k); }
+    if (sc !== 'none') { arrows += capSVG(sc, s0, n > 2 ? pts[1] : wirePts(o)[1], s.as, s.stroke, s.sw); const k = capInset(sc, s.as); if (k) pts[0] = shorten(pts[0], pts[1], k); }
+  }
+  const line = pts.map(p => F(p.x) + ',' + F(p.y)).join(' ');
+  let g = `<g${exp ? '' : ` data-id="${o.id}"`}>`;
+  if (!exp) g += `<polyline class="hit" points="${raw}" fill="none" stroke="transparent" stroke-width="${F(9 / view.z)}"/>`;
+  return g + `<polyline points="${line}" fill="none" stroke="${s.stroke}" stroke-width="${s.sw}"${dashAttr(s.dash, s.sw)} stroke-linejoin="round" stroke-linecap="round"/>${arrows}${wireLabelSVG(o)}</g>`;
+}
+/* text on a line: sits on the longest segment, reads left to right, size follows the line length unless set by hand */
+function wireLabelGeom(o) {
+  const s = o.style, raw = wirePts(o), lines = (o.label || '').split('\n');
+  /* merge straight runs, then put the text at the midpoint of the whole path length */
+  const pts = raw.filter((p, i) => { if (i === 0 || i === raw.length - 1) return true; const a = raw[i - 1], b = raw[i + 1]; return Math.abs((p.x - a.x) * (b.y - p.y) - (p.y - a.y) * (b.x - p.x)) > 1e-9; });
+  const segs = []; let total = 0;
+  for (let i = 1; i < pts.length; i++) { const l = Math.hypot(pts[i].x - pts[i - 1].x, pts[i].y - pts[i - 1].y); segs.push({ a: pts[i - 1], b: pts[i], l }); total += l; }
+  if (!segs.length) segs.push({ a: pts[0], b: pts[0], l: 0 });
+  let half = total / 2, k = 0; while (k < segs.length - 1 && half > segs[k].l) { half -= segs[k].l; k++; }
+  const sg = segs[k], f = sg.l ? half / sg.l : .5;
+  const ref = sg.l >= total * .3 ? sg : segs.reduce((p, q) => (q.l > p.l ? q : p));
+  const g = dimGeom({ a: ref.a, b: ref.b });
+  g.mx = sg.a.x + (sg.b.x - sg.a.x) * f; g.my = sg.a.y + (sg.b.y - sg.a.y) * f; g.L = total;
+  let fs = s.fs || 7;
+  if (s.lauto !== false) {
+    const longest = Math.max(1, ...lines.map(t => t.length));
+    fs = Math.round(clamp(Math.min(g.L / 3.2, (g.L * .95) / (longest * .55 * PT), 9), 4, 9) * 2) / 2;
+  }
+  return Object.assign(g, { fs, lines });
+}
+/* line text is always horizontal: above/below a flat line, beside a steep one */
+function wireLabelLayout(o, label) {
+  const s = o.style, G = wireLabelGeom(Object.assign({}, o, { label })), fsm = G.fs * PT, lh = fsm * 1.2, gap = s.lgap != null ? s.lgap : .6, lines = G.lines, H = lines.length * lh;
+  const N = s.lpos === 'below' ? { x: -G.nx, y: -G.ny } : { x: G.nx, y: G.ny };
+  let anchor = 'middle', x = G.mx, top;
+  if (Math.abs(N.y) >= Math.abs(N.x)) top = N.y < 0 ? G.my - gap - H : G.my + gap;
+  else { anchor = N.x > 0 ? 'start' : 'end'; x = G.mx + (N.x > 0 ? gap : -gap); top = G.my - H / 2; }
+  return { lines, fsm, lh, anchor, x, top, H };
+}
+function wireLabelSVG(o) {
+  if (!o.label || (editing && editing.o === o)) return '';
+  const s = o.style, Lw = wireLabelLayout(o, o.label);
+  return Lw.lines.map((t, i) => `<text x="${F(Lw.x)}" y="${F(Lw.top + i * Lw.lh + (Lw.lh - Lw.fsm) / 2 + Lw.fsm * .8)}" text-anchor="${Lw.anchor}" font-family="${esc(DEF_STYLE.font)}" font-size="${F(Lw.fsm)}" fill="${s.fc || s.stroke}" stroke="none">${esc(t) || ' '}</text>`).join('');
+}
+function dimGeom(o) {
+  const a = o.a, b = o.b, dx = b.x - a.x, dy = b.y - a.y, L = Math.hypot(dx, dy);
+  let t = Math.atan2(dy, dx) * 180 / Math.PI;
+  if (t >= 90) t -= 180; else if (t < -90) t += 180;
+  const r = t * Math.PI / 180, nx = Math.sin(r), ny = -Math.cos(r);
+  return { L, t, nx, ny, mx: (a.x + b.x) / 2, my: (a.y + b.y) / 2 };
+}
+const ptsOf = o => o.type === 'wire' ? wirePts(o) : (v => o.style.route === 'ortho' ? orthoPath(v) : v)([o.a, ...(o.mid || []), o.b]);
+/* after drawing or editing, turn the elbows of an orthogonal line or dimension into real corners */
+function bakeOrtho(o) {
+  if (!o || !(o.kind === 'line' || o.type === 'dim') || o.style.route !== 'ortho') return;
+  const P = ptsOf(o).map(q => ({ x: q.x, y: q.y }));
+  const Q = P.filter((p, i) => i === 0 || Math.hypot(p.x - P[i - 1].x, p.y - P[i - 1].y) > 1e-9);
+  const R = Q.filter((p, i) => { if (i === 0 || i === Q.length - 1) return true; const a = Q[i - 1], b = Q[i + 1]; return Math.abs((p.x - a.x) * (b.y - p.y) - (p.y - a.y) * (b.x - p.x)) > 1e-9; });
+  if (R.length < 2) return;
+  o.a = R[0]; o.b = R[R.length - 1]; const m = R.slice(1, -1); if (m.length) o.mid = m; else delete o.mid;
+}
+const dimTotal = o => { const p = ptsOf(o); let L = 0; for (let i = 1; i < p.length; i++) L += Math.hypot(p[i].x - p[i - 1].x, p[i].y - p[i - 1].y); return L; };
+/* one dimension span: line, end ticks, arrows and its own length */
+function dimSpanSVG(a, b, s) {
+  const g0 = dimGeom({ a, b }); if (g0.L <= .01) return '';
+  const px = -(b.y - a.y) / g0.L, py = (b.x - a.x) / g0.L, e = 1.1, roomy = g0.L > s.as * 2.2;
+  const A = roomy ? shorten(a, b, s.as * .6) : a, B = roomy ? shorten(b, a, s.as * .6) : b;
+  let g = `<g stroke="${s.stroke}" stroke-width="${s.sw}" stroke-linecap="round" fill="none">`
+    + `<line x1="${F(A.x)}" y1="${F(A.y)}" x2="${F(B.x)}" y2="${F(B.y)}"/>`
+    + `<line x1="${F(a.x - px * e)}" y1="${F(a.y - py * e)}" x2="${F(a.x + px * e)}" y2="${F(a.y + py * e)}"/>`
+    + `<line x1="${F(b.x - px * e)}" y1="${F(b.y - py * e)}" x2="${F(b.x + px * e)}" y2="${F(b.y + py * e)}"/></g>`;
+  if (roomy) g += arrowPoly(a, b, s.as, s.stroke) + arrowPoly(b, a, s.as, s.stroke);
+  const tx = g0.mx + g0.nx * s.off, ty = g0.my + g0.ny * s.off;
+  return g + `<text x="${F(tx)}" y="${F(ty)}" transform="rotate(${F(g0.t)} ${F(tx)} ${F(ty)})" text-anchor="middle" font-family="${esc(s.font)}" font-size="${F(s.fs * PT)}" fill="${s.fc}" stroke="none">${(g0.L).toFixed(s.dec)} mm</text>`;
+}
+function dimSVG(o, exp) {
+  const s = o.style, pts = ptsOf(o);
+  let g = `<g${exp ? '' : ` data-id="${o.id}"`}>`;
+  if (!exp) g += `<polyline class="hit" points="${pts.map(p => F(p.x) + ',' + F(p.y)).join(' ')}" fill="none" stroke="transparent" stroke-width="${F(9 / view.z)}"/>`;
+  for (let i = 1; i < pts.length; i++) g += dimSpanSVG(pts[i - 1], pts[i], s);
+  return g + '</g>';
+}
+const objSVG = (o, exp) => o.type === 'shape' ? shapeSVG(o, exp) : o.type === 'wire' ? wireSVG(o, exp) : dimSVG(o, exp);
+
+let raf = 0;
+function schedule() { if (!raf) raf = requestAnimationFrame(() => { raf = 0; renderNow(); }); }
+function renderNow() {
+  world.setAttribute('transform', `translate(${F(view.px)} ${F(view.py)}) scale(${view.z})`);
+  const W = wrap.clientWidth, H = wrap.clientHeight, z = view.z;
+  const gr = $('#gridRect'), P = pageBox(), pr = $('#pageRect'), ps = $('#pageShadow');
+  wrap.classList.toggle('paged', !!P);
+  if (P) { pr.style.display = ps.style.display = ''; pr.setAttribute('width', P.w); pr.setAttribute('height', P.h); ps.setAttribute('x', F(2 / z)); ps.setAttribute('y', F(3 / z)); ps.setAttribute('width', P.w); ps.setAttribute('height', P.h); }
+  else { pr.style.display = 'none'; ps.style.display = 'none'; }
+  let gx0 = -view.px / z, gy0 = -view.py / z, gx1 = gx0 + W / z + 1, gy1 = gy0 + H / z + 1;
+  if (P) { gx0 = Math.max(gx0, 0); gy0 = Math.max(gy0, 0); gx1 = Math.min(gx1, P.w); gy1 = Math.min(gy1, P.h); }
+  gr.style.display = showGrid && gx1 > gx0 && gy1 > gy0 ? '' : 'none';
+  gr.setAttribute('x', F(gx0)); gr.setAttribute('y', F(gy0));
+  gr.setAttribute('width', F(Math.max(0, gx1 - gx0))); gr.setAttribute('height', F(Math.max(0, gy1 - gy0)));
+  updatePattern();
+  $('#gMinor').style.display = z * step < 4 ? 'none' : '';
+  $('#gMinor').setAttribute('stroke-width', F(.7 / z));
+  $('#gMajor').setAttribute('stroke-width', F(1.1 / z));
+  layer.innerHTML = objs.map(o => objSVG(o, false)).join('');
+  renderOverlay(); drawRulers(); updateStatus();
+}
+function renderOverlay() {
+  const z = view.z, hs = 8 / z, lw = 1 / z, items = selected();
+  let h = '';
+  const showPorts = tool === 'wire' || (drag && drag.k === 'end' && drag.o.type === 'wire' && drag.o.kind !== 'line');
+  if (showPorts) objs.forEach(o => { if (o.type !== 'shape' || o.t === 'pcb' || o.t === 'text') return; portsOf(o).forEach((_, i) => { const p = portPos(o, i); h += `<circle cx="${F(p.x)}" cy="${F(p.y)}" r="${F(2.4 / z)}" fill="#fff" stroke="var(--sel)" stroke-width="${F(lw)}" pointer-events="none"/>`; }); });
+  items.forEach(o => {
+    if (o.type === 'shape') h += `<rect x="${F(o.x)}" y="${F(o.y)}" width="${F(o.w)}" height="${F(o.h)}" fill="none" stroke="var(--sel)" stroke-width="${F(lw)}" stroke-dasharray="${F(4 / z)} ${F(3 / z)}" pointer-events="none"/>`;
+    else {
+      const pts = ptsOf(o);
+      h += `<polyline points="${pts.map(p => F(p.x) + ',' + F(p.y)).join(' ')}" fill="none" stroke="var(--sel)" stroke-width="${F(lw * 3)}" stroke-opacity=".3" pointer-events="none"/>`;
+    }
+  });
+  if (items.length > 1) items.forEach(o => {
+    const hs2 = 6 / z;
+    if (o.type === 'shape') { const xs = [o.x, o.x + o.w / 2, o.x + o.w], ys = [o.y, o.y + o.h / 2, o.y + o.h]; xs.forEach((x, i) => ys.forEach((y, j) => { if (i === 1 && j === 1) return; h += `<rect x="${F(x - hs2 / 2)}" y="${F(y - hs2 / 2)}" width="${F(hs2)}" height="${F(hs2)}" fill="#fff" stroke="var(--sel)" stroke-width="${F(lw)}" pointer-events="none"/>`; })); }
+    else { const pts = ptsOf(o); [pts[0], pts[pts.length - 1]].forEach(p => { h += `<circle cx="${F(p.x)}" cy="${F(p.y)}" r="${F(3.5 / z)}" fill="#fff" stroke="var(--sel)" stroke-width="${F(lw)}" pointer-events="none"/>`; }); }
+  });
+  const gsel = {}; items.forEach(o => { if (o.g) (gsel[o.g] = gsel[o.g] || []).push(o); });
+  Object.values(gsel).forEach(list => { const B = unionBox(list), pd = 1.5; h += `<rect x="${F(B.x - pd)}" y="${F(B.y - pd)}" width="${F(B.w + 2 * pd)}" height="${F(B.h + 2 * pd)}" fill="none" stroke="var(--sel)" stroke-width="${F(lw * 1.4)}" stroke-dasharray="${F(9 / z)} ${F(4 / z)}" pointer-events="none"/>`; });
+  if (items.length === 1) {
+    const o = items[0];
+    if (o.type === 'shape') {
+      const cx = o.x + o.w / 2, cy = o.y + o.h / 2, r = o.x + o.w, b = o.y + o.h;
+      const H = { nw: [o.x, o.y], n: [cx, o.y], ne: [r, o.y], e: [r, cy], se: [r, b], s: [cx, b], sw: [o.x, b], w: [o.x, cy] };
+      const cur = { nw: 'nwse', se: 'nwse', ne: 'nesw', sw: 'nesw', n: 'ns', s: 'ns', e: 'ew', w: 'ew' };
+      for (const k in H) h += `<rect data-h="${k}" x="${F(H[k][0] - hs / 2)}" y="${F(H[k][1] - hs / 2)}" width="${F(hs)}" height="${F(hs)}" fill="#fff" stroke="var(--sel)" stroke-width="${F(lw)}" style="cursor:${cur[k]}-resize"/>`;
+    } else {
+      const pts = ptsOf(o), n = pts.length;
+      const curOf = (p, q) => { const a = ((Math.atan2(q.y - p.y, q.x - p.x) * 180 / Math.PI) % 180 + 180) % 180; return a < 22.5 || a >= 157.5 ? 'ew' : a < 67.5 ? 'nwse' : a < 112.5 ? 'ns' : 'nesw'; };
+      [['a', pts[0], pts[1]], ['b', pts[n - 1], pts[n - 2]]].forEach(([k, p, q]) => { h += `<circle data-h="${k}" cx="${F(p.x)}" cy="${F(p.y)}" r="${F(4.5 / z)}" fill="#fff" stroke="var(--sel)" stroke-width="${F(lw * 1.5)}" style="cursor:${q ? curOf(p, q) : 'ew'}-resize"/>`; });
+      segHandles(o).forEach(sh => { const r = 3.4 / z; h += `<rect data-h="${sh.h}" x="${F(sh.x - r)}" y="${F(sh.y - r)}" width="${F(2 * r)}" height="${F(2 * r)}" transform="rotate(45 ${F(sh.x)} ${F(sh.y)})" fill="var(--sel)" stroke="#fff" stroke-width="${F(lw)}" style="cursor:${sh.cur}"/>`; });
+      if (o.mid) { const vv = vertsOf(o); o.mid.forEach((q, i) => { const r = 3.6 / z, pv = vv[i]; h += `<rect data-h="m${i}" x="${F(q.x - r)}" y="${F(q.y - r)}" width="${F(2 * r)}" height="${F(2 * r)}" fill="#fff" stroke="var(--sel)" stroke-width="${F(lw * 1.5)}" style="cursor:${cursorAt(Math.atan2(q.y - pv.y, q.x - pv.x) * 180 / Math.PI)}"/>`; }); }
+    }
+  }
+  if (placing && cursorW && !drag) {
+    let g = ''; const L = typeof placing === 'string' ? LIBM[placing] : null;
+    if (!L) g = clipGhost(placing, cursorW);
+    else if (L.line) { const ax = snapv(cursorW.x - 10), ay = snapv(cursorW.y), wo = { type: 'wire', a: { x: ax, y: ay }, b: { x: ax + 20, y: ay }, style: Object.assign({}, LINE_STYLE, L.st) }; spinTimes(wo, placeRot / 90); g = wireSVG(wo, true); }
+    else { const o = newShape(placing, cursorW.x, cursorW.y); if (placeRot) { spinTimes(o, placeRot / 90); o.x = snapv(o.x); o.y = snapv(o.y); } g = shapeSVG(o, true); if (placing === 'text') g += `<rect x="${F(o.x)}" y="${F(o.y)}" width="${F(o.w)}" height="${F(o.h)}" fill="none" stroke="var(--sel)" stroke-width="${F(lw)}" stroke-dasharray="${F(3 / z)} ${F(2 / z)}"/>`; }
+    h += `<g opacity=".55" pointer-events="none">${g}</g>`;
+  }
+  if (hover) h += `<circle cx="${F(hover.x)}" cy="${F(hover.y)}" r="${F(4 / z)}" fill="var(--sel)" fill-opacity=".35" stroke="var(--sel)" stroke-width="${F(lw)}" pointer-events="none"/>`;
+  if (drag && drag.k === 'band') {
+    const x = Math.min(drag.a.x, drag.b.x), y = Math.min(drag.a.y, drag.b.y);
+    h += `<rect x="${F(x)}" y="${F(y)}" width="${F(Math.abs(drag.b.x - drag.a.x))}" height="${F(Math.abs(drag.b.y - drag.a.y))}" fill="var(--sel)" fill-opacity=".08" stroke="var(--sel)" stroke-width="${F(lw)}" pointer-events="none"/>`;
+  }
+  if (drag && (drag.k === 'move' || drag.k === 'resize' || drag.k === 'end') && drag.guides) drag.guides.forEach(g => {
+    const a = `stroke="#e0368a" stroke-width="${F(lw)}" stroke-dasharray="${F(5 / z)} ${F(3 / z)}" pointer-events="none"`;
+    h += g.ax === 'x' ? `<line x1="${F(g.v)}" y1="${F(g.lo)}" x2="${F(g.v)}" y2="${F(g.hi)}" ${a}/>` : `<line x1="${F(g.lo)}" y1="${F(g.v)}" x2="${F(g.hi)}" y2="${F(g.v)}" ${a}/>`;
+  });
+  /* quick measures stay on screen until Ctrl+C: thin dashed line, dotted X/Y legs and a small readout */
+  const pops = [];
+  const drawM = (a, b, done) => {
+    const t = `stroke="var(--sel)" stroke-width="${F(lw * 1.2)}" pointer-events="none"`;
+    h += `<path d="M${F(a.x)} ${F(a.y)}H${F(b.x)}V${F(b.y)}" fill="none" ${t} stroke-dasharray="${F(1.5 / z)} ${F(3 / z)}" stroke-opacity=".6"/>`;
+    h += `<line x1="${F(a.x)}" y1="${F(a.y)}" x2="${F(b.x)}" y2="${F(b.y)}" ${t} stroke-dasharray="${F(5 / z)} ${F(3 / z)}"/>`;
+    [a, b].forEach(q => { const c = 5 / z; h += `<path d="M${F(q.x - c)} ${F(q.y)}H${F(q.x + c)}M${F(q.x)} ${F(q.y - c)}V${F(q.y + c)}" ${t}/>`; });
+    if (done) {
+      const dx = b.x - a.x, dy = b.y - a.y;
+      pops.push(`<div class="qmPop" style="left:${F(b.x * z + view.px + 14)}px;top:${F(b.y * z + view.py + 14)}px"><div><span>ΔX</span><b>${Math.abs(dx).toFixed(2)} mm</b></div><div><span>ΔY</span><b>${Math.abs(dy).toFixed(2)} mm</b></div><div><span>Distance</span><b>${Math.hypot(dx, dy).toFixed(2)} mm</b></div></div>`);
+    }
+  };
+  measures.forEach(m => drawM(m.a, m.b, true));
+  if (tool === 'qm' && qm) drawM(qm.a, qm.b, false);
+  $('#qmLayer').innerHTML = pops.join('');
+  overlay.innerHTML = h;
+}
+
+/* rulers */
+function cssVar(n) { return getComputedStyle(document.documentElement).getPropertyValue(n).trim(); }
+function prepCanvas(c) {
+  const dpr = window.devicePixelRatio || 1, w = c.clientWidth, h = c.clientHeight;
+  if (c.width !== Math.round(w * dpr) || c.height !== Math.round(h * dpr)) { c.width = Math.round(w * dpr); c.height = Math.round(h * dpr); }
+  const ctx = c.getContext('2d'); ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.clearRect(0, 0, w, h);
+  return [ctx, w, h];
+}
+function drawRulers() {
+  const z = view.z, steps = [1, 2, 5, 10, 20, 50, 100, 200, 500, 1000, 2000];
+  const major = steps.find(s => s * z >= 56) || 2000;
+  const sub = (major / 10) * z >= 5 ? major / 10 : (major / 5) * z >= 5 ? major / 5 : major / 2;
+  const ink = cssVar('--ink2'), acc = cssVar('--acc'), bg = cssVar('--panel2');
+  const box = unionBox(selected());
+  [[rx, 'x'], [ry, 'y']].forEach(([c, ax]) => {
+    const [ctx, w, h] = prepCanvas(c);
+    ctx.fillStyle = bg; ctx.fillRect(0, 0, w, h);
+    const len = ax === 'x' ? w : h, off = ax === 'x' ? view.px : view.py, thick = ax === 'x' ? h : w;
+    if (box) { ctx.fillStyle = acc; ctx.globalAlpha = .18; const s0 = (ax === 'x' ? box.x : box.y) * z + off, s1 = (ax === 'x' ? box.w : box.h) * z; if (ax === 'x') ctx.fillRect(s0, 0, s1, h); else ctx.fillRect(0, s0, w, s1); ctx.globalAlpha = 1; }
+    ctx.strokeStyle = ink; ctx.fillStyle = ink; ctx.lineWidth = 1; ctx.font = "10px 'IBM Plex Sans', system-ui, sans-serif";
+    const w0 = -off / z, w1 = (len - off) / z;
+    ctx.beginPath();
+    for (let v = Math.floor(w0 / sub) * sub; v <= w1; v += sub) {
+      const p = Math.round(v * z + off) + .5, isMaj = Math.abs(v / major - Math.round(v / major)) < 1e-6, isMid = Math.abs((v * 2) / major - Math.round((v * 2) / major)) < 1e-6;
+      const t = isMaj ? thick - 2 : isMid ? 7 : 4;
+      if (ax === 'x') { ctx.moveTo(p, h); ctx.lineTo(p, h - t); } else { ctx.moveTo(w, p); ctx.lineTo(w - t, p); }
+      if (isMaj) {
+        const lbl = fmt(Math.round(v / major) * major);
+        if (ax === 'x') ctx.fillText(lbl, p + 3, 10);
+        else { ctx.save(); ctx.translate(10, p - 3); ctx.rotate(-Math.PI / 2); ctx.fillText(lbl, 0, 0); ctx.restore(); }
+      }
+    }
+    ctx.stroke();
+    if (cursorW) { ctx.strokeStyle = acc; ctx.beginPath(); const p = Math.round((ax === 'x' ? cursorW.x : cursorW.y) * z + off) + .5; if (ax === 'x') { ctx.moveTo(p, 0); ctx.lineTo(p, h); } else { ctx.moveTo(0, p); ctx.lineTo(w, p); } ctx.stroke(); }
+  });
+}
+function updateStatus() {
+  $('#zoomLbl').textContent = Math.round(view.z / PXMM * 100) + '%';
+  const items = selected(), st = $('#stSel');
+  $('#stPage').textContent = pageLabel();
+  if (!items.length) st.textContent = '';
+  else if (items.length === 1 && items[0].type === 'dim') st.innerHTML = `${items[0].mid ? 'Total length' : 'Length'} <b>${dimTotal(items[0]).toFixed(2)} mm</b>`;
+  else { const b = unionBox(items); st.innerHTML = `Selection <b>${fmt(b.w)} × ${fmt(b.h)} mm</b>${items.length > 1 ? ` (${items.length} objects)` : ''}`; }
+  document.querySelectorAll('.al').forEach(b => { b.disabled = items.length < ((b.dataset.al === 'dh' || b.dataset.al === 'dv') ? 3 : 2); });
+  $('#btnUndo').disabled = hi <= 0; $('#btnRedo').disabled = hi >= hist.length - 1;
+}
+
+/* ───────────── history & persistence ───────────── */
+const LSKEY = 'blok-sema.v1';
+function commit() {
+  const s = JSON.stringify(objs);
+  if (hi >= 0 && hist[hi] === s) return;
+  hist = hist.slice(0, hi + 1); hist.push(s);
+  if (hist.length > 200) hist.shift();
+  hi = hist.length - 1;
+  try { localStorage.setItem(LSKEY, s); } catch (e) { /* storage unavailable */ }
+  updateStatus();
+}
+function restore(s) { objs = JSON.parse(s); sel = new Set([...sel].filter(id => byId(id))); schedule(); renderPanel(); }
+function undo() { if (hi > 0) { hi--; restore(hist[hi]); try { localStorage.setItem(LSKEY, hist[hi]); } catch (e) {} } }
+function redo() { if (hi < hist.length - 1) { hi++; restore(hist[hi]); try { localStorage.setItem(LSKEY, hist[hi]); } catch (e) {} } }
+
+/* ───────────── snapping ───────────── */
+const snapv = (v, e) => (snapOn && !(e && e.altKey)) ? Math.round(v / step) * step : v;
+function snapPort(p, skipId) {
+  const tol = 10 / view.z; let best = null, bd = tol;
+  objs.forEach(o => { if (o.type !== 'shape' || o.id === skipId || o.t === 'pcb' || o.t === 'text') return; portsOf(o).forEach((_, i) => { const q = portPos(o, i), d = Math.hypot(q.x - p.x, q.y - p.y); if (d < bd) { bd = d; best = { x: q.x, y: q.y, id: o.id, port: i }; } }); });
+  return best;
+}
+function snapGeom(p, skipId, withPorts) {
+  const tol = 8 / view.z; let best = null, bd = tol;
+  const test = (x, y) => { const d = Math.hypot(x - p.x, y - p.y); if (d < bd) { bd = d; best = { x, y }; } };
+  objs.forEach(o => {
+    if (o.id === skipId) return;
+    if (o.type === 'shape') { const xs = [o.x, o.x + o.w / 2, o.x + o.w], ys = [o.y, o.y + o.h / 2, o.y + o.h]; xs.forEach(x => ys.forEach(y => test(x, y))); if (withPorts && o.t !== 'pcb') portsOf(o).forEach((_, i) => { const q = portPos(o, i); test(q.x, q.y); }); }
+    else if (o.type === 'wire') { const pts = wirePts(o); test(pts[0].x, pts[0].y); test(pts[pts.length - 1].x, pts[pts.length - 1].y); }
+    else { test(o.a.x, o.a.y); test(o.b.x, o.b.y); }
+  });
+  return best;
+}
+function pickPoint(p, e, kind, other, skipId) {
+  if (!(e && e.altKey)) {
+    if (kind === 'wire') { const s = snapPort(p); if (s) return s; }
+    else { const s = snapGeom(p, skipId, kind === 'line'); if (s) return s; }
+  }
+  let q = { x: snapv(p.x, e), y: snapv(p.y, e) };
+  if (e && e.shiftKey && other) { if (Math.abs(q.x - other.x) > Math.abs(q.y - other.y)) q.y = other.y; else q.x = other.x; }
+  return q;
+}
+
+/* ───────────── object operations ───────────── */
+function newShape(t, cx, cy) {
+  const L = LIBM[t];
+  return { id: uid(), type: 'shape', t, x: snapv(cx - L.w / 2), y: snapv(cy - L.h / 2), w: L.w, h: L.h, rot: 0, lock: !!L.lock, label: '', style: Object.assign({}, DEF_STYLE, L.st || {}) };
+}
+function viewCenter() { return { x: (wrap.clientWidth / 2 - view.px) / view.z, y: (wrap.clientHeight / 2 - view.py) / view.z }; }
+/* rotation helpers: text stays upright, text boxes only move */
+function rot90(P) { return q => ({ x: +(P.x - (q.y - P.y)).toFixed(6), y: +(P.y + (q.x - P.x)).toFixed(6) }); }
+function spinShape(o, R) { const c = R({ x: o.x + o.w / 2, y: o.y + o.h / 2 }); if (o.t !== 'text') { o.rot = ((o.rot || 0) + 90) % 360; [o.w, o.h] = [o.h, o.w]; } o.x = +(c.x - o.w / 2).toFixed(6); o.y = +(c.y - o.h / 2).toFixed(6); }
+function spinTimes(o, n) { for (let i = 0; i < n; i++) { if (o.type === 'shape') spinShape(o, rot90({ x: o.x + o.w / 2, y: o.y + o.h / 2 })); else { const R = rot90({ x: (o.a.x + o.b.x) / 2, y: (o.a.y + o.b.y) / 2 }); o.a = R(o.a); o.b = R(o.b); } } }
+function rotatePlacing() {
+  if (typeof placing === 'object') { const pk = placing, B = pk.box, R = rot90({ x: B.x + B.w / 2, y: B.y + B.h / 2 }); pk.clip.forEach(o => { if (o.type === 'shape') spinShape(o, R); else { ['a', 'b'].forEach(k => { const q = R(o[k]); o[k].x = q.x; o[k].y = q.y; }); if (o.mid) o.mid = o.mid.map(R); } }); pk.box = clipBox(pk.clip); }
+  else placeRot = (placeRot + 90) % 360;
+  schedule();
+}
+/* Ctrl+drag: the block breaks away from the connectors attached to it */
+function detachFrom(items) {
+  const ids = new Set(items.filter(o => o.type === 'shape').map(o => o.id)), inSel = new Set(items.map(o => o.id));
+  objs.forEach(w => { if (w.type !== 'wire' || inSel.has(w.id)) return; ['a', 'b'].forEach(k => { if (w[k].id && ids.has(w[k].id)) { const p = endPos(w[k]); w[k] = { x: p.x, y: p.y }; } }); });
+}
+function addShape(t, cx, cy, r = 0) {
+  if (cx == null) { const c = viewCenter(); cx = c.x; cy = c.y; }
+  if (LIBM[t].line) {
+    const a = { x: snapv(cx - 10), y: snapv(cy) }, o = { id: uid(), type: 'wire', kind: 'line', a, b: { x: a.x + 20, y: a.y }, style: Object.assign({}, LINE_STYLE, LIBM[t].st) };
+    spinTimes(o, r / 90);
+    objs.push(o); sel = new Set([o.id]); commit(); schedule(); renderPanel(); closeDrawers(); return o;
+  }
+  const o = newShape(t, cx, cy);
+  if (r) { spinTimes(o, r / 90); o.x = snapv(o.x); o.y = snapv(o.y); }
+  if (o.t === 'pcb') objs.unshift(o); else objs.push(o);
+  sel = new Set([o.id]); commit(); schedule(); renderPanel();
+  closeDrawers();
+  if (t === 'text') requestAnimationFrame(() => openEditor(o, true));
+  return o;
+}
+function detachRefs(ids) {
+  objs.forEach(o => { if (o.type !== 'wire') return; ['a', 'b'].forEach(k => { if (o[k].id && ids.has(o[k].id)) { const p = endPos(o[k]); o[k] = { x: p.x, y: p.y }; } }); });
+}
+function deleteSel() {
+  if (!sel.size) return;
+  detachRefs(sel); objs = objs.filter(o => !sel.has(o.id)); sel.clear();
+  commit(); schedule(); renderPanel();
+}
+function copySel() {
+  const items = selected(); if (!items.length) return false;
+  const ids = new Set(items.map(o => o.id));
+  const c = JSON.parse(JSON.stringify(items));
+  c.forEach(o => { if (o.type === 'wire') ['a', 'b'].forEach(k => { const p = endPos(o[k]); o[k] = (o[k].id && ids.has(o[k].id)) ? { id: o[k].id, port: o[k].port, x: p.x, y: p.y } : { x: p.x, y: p.y }; }); });
+  clip = JSON.stringify(c); return true;
+}
+function clipBox(c) {
+  let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+  const add = (x, y) => { x0 = Math.min(x0, x); y0 = Math.min(y0, y); x1 = Math.max(x1, x); y1 = Math.max(y1, y); };
+  c.forEach(o => { if (o.type === 'shape') { add(o.x, o.y); add(o.x + o.w, o.y + o.h); } else { add(o.a.x, o.a.y); add(o.b.x, o.b.y); (o.mid || []).forEach(q => add(q.x, q.y)); } });
+  return { x: x0, y: y0, w: x1 - x0, h: y1 - y0 };
+}
+/* Ctrl+V: the copied items follow the mouse; a click drops them */
+function paste() {
+  if (!clip) return;
+  const c = JSON.parse(clip); if (!c.length) return;
+  startPlacing({ clip: c, box: clipBox(c) });
+}
+function clipDelta(pk, p) { const B = pk.box; return { dx: snapv(p.x - (B.x + B.w / 2)), dy: snapv(p.y - (B.y + B.h / 2)) }; }
+function clipGhost(pk, p) {
+  const { dx, dy } = clipDelta(pk, p);
+  return pk.clip.map(o => {
+    const q = JSON.parse(JSON.stringify(o));
+    if (q.type === 'shape') { q.x += dx; q.y += dy; } else { ['a', 'b'].forEach(k => { q[k] = { x: q[k].x + dx, y: q[k].y + dy }; }); if (q.mid) q.mid = q.mid.map(m => ({ x: m.x + dx, y: m.y + dy })); }
+    return objSVG(q, true);
+  }).join('');
+}
+function dropClip(pk, p) {
+  const { dx, dy } = clipDelta(pk, p), c = JSON.parse(JSON.stringify(pk.clip)), map = {};
+  c.forEach(o => { map[o.id] = uid(); });
+  const gmap = {}; c.forEach(o => { if (o.g) o.g = gmap[o.g] || (gmap[o.g] = uid()); });
+  c.forEach(o => {
+    o.id = map[o.id];
+    if (o.type === 'shape') { o.x += dx; o.y += dy; }
+    else { ['a', 'b'].forEach(k => { o[k].x += dx; o[k].y += dy; if (o[k].id) { if (map[o[k].id]) o[k].id = map[o[k].id]; else { delete o[k].id; delete o[k].port; } } }); if (o.mid) o.mid = o.mid.map(m => ({ x: m.x + dx, y: m.y + dy })); }
+  });
+  objs.push(...c); sel = new Set(c.map(o => o.id));
+  commit(); schedule(); renderPanel();
+}
+function duplicate() {
+  const keep = clip;
+  if (copySel()) { const c = JSON.parse(clip), B = clipBox(c), d = Math.max(step, 1) * 5; dropClip({ clip: c, box: B }, { x: B.x + B.w / 2 + d, y: B.y + B.h / 2 + d }); }
+  clip = keep;
+}
+function withGroups(set) {
+  const gs = new Set(); objs.forEach(o => { if (set.has(o.id) && o.g) gs.add(o.g); });
+  if (gs.size) objs.forEach(o => { if (o.g && gs.has(o.g)) set.add(o.id); });
+  return set;
+}
+function groupSel() { const items = selected(); if (items.length < 2) return; const g = uid(); items.forEach(o => { o.g = g; }); commit(); schedule(); renderPanel(); toast('Grouped. Ctrl+Shift+G ungroups.'); }
+function ungroupSel() { const items = selected(); if (!items.some(o => o.g)) return; items.forEach(o => { delete o.g; }); commit(); schedule(); renderPanel(); toast('Ungrouped'); }
+function moveBy(items, dx, dy, origin) {
+  items.forEach((o, i) => {
+    const s = origin ? origin[i] : null;
+    if (o.type === 'shape') { o.x = (s ? s.x : o.x) + dx; o.y = (s ? s.y : o.y) + dy; }
+    else {
+      ['a', 'b'].forEach(k => { if (o[k].id && byId(o[k].id)) return; const b = s ? s[k] : o[k]; o[k] = { x: b.x + dx, y: b.y + dy }; });
+      const base = s ? s.mid : o.mid; if (o.mid && base) o.mid = base.map(q => ({ x: q.x + dx, y: q.y + dy }));
+    }
+  });
+}
+/* rotate the whole selection 90° clockwise as one rigid piece around its center */
+function rotateSel() {
+  const items = selected(); if (!items.length) return;
+  const B = unionBox(items), P = { x: B.x + B.w / 2, y: B.y + B.h / 2 };
+  const R = q => ({ x: +(P.x - (q.y - P.y)).toFixed(6), y: +(P.y + (q.x - P.x)).toFixed(6) });
+  items.forEach(o => {
+    if (o.type === 'shape') spinShape(o, R);
+    else { ['a', 'b'].forEach(k => { if (o.type === 'wire' && o[k].id && byId(o[k].id)) return; const q = o.type === 'wire' ? endPos(o[k]) : o[k]; o[k] = R(q); }); if (o.mid) o.mid = o.mid.map(R); }
+  });
+  commit(); schedule(); renderPanel();
+}
+function rotateDuringDrag() {
+  rotateSel();
+  const items = drag.items;
+  drag.p0 = cursorW || drag.p0; drag.orig = items.map(o => JSON.parse(JSON.stringify(o.type === 'shape' ? { x: o.x, y: o.y } : { a: o.a, b: o.b, mid: o.mid })));
+  drag.box0 = unionBox(items); drag.lock = { x: null, y: null }; drag.moved = true;
+}
+function reorder(front) {
+  const a = objs.filter(o => sel.has(o.id)), b = objs.filter(o => !sel.has(o.id));
+  objs = front ? b.concat(a) : a.concat(b); commit(); schedule();
+}
+function align(mode) {
+  const items = selected(); if (items.length < 2) return;
+  const B = unionBox(items), boxes = items.map(o => ({ o, b: bboxOf(o) }));
+  if (mode === 'dh' || mode === 'dv') {
+    if (items.length < 3) return;
+    const h = mode === 'dh'; boxes.sort((p, q) => h ? p.b.x - q.b.x : p.b.y - q.b.y);
+    const total = boxes.reduce((t, x) => t + (h ? x.b.w : x.b.h), 0), gap = ((h ? B.w : B.h) - total) / (boxes.length - 1);
+    let pos = h ? B.x : B.y;
+    boxes.forEach(({ o, b }) => { if (h) { moveBy([o], pos - b.x, 0); pos += b.w + gap; } else { moveBy([o], 0, pos - b.y); pos += b.h + gap; } });
+  } else boxes.forEach(({ o, b }) => {
+    const dx = mode === 'l' ? B.x - b.x : mode === 'r' ? B.x + B.w - b.x - b.w : mode === 'c' ? B.x + B.w / 2 - b.x - b.w / 2 : 0;
+    const dy = mode === 't' ? B.y - b.y : mode === 'b' ? B.y + B.h - b.y - b.h : mode === 'm' ? B.y + B.h / 2 - b.y - b.h / 2 : 0;
+    moveBy([o], dx, dy);
+  });
+  commit(); schedule(); renderPanel();
+}
+
+/* ───────────── view ───────────── */
+function zoomAt(sx, sy, f) {
+  const wx = (sx - view.px) / view.z, wy = (sy - view.py) / view.z;
+  view.z = clamp(view.z * f, .4, 80); view.px = sx - wx * view.z; view.py = sy - wy * view.z;
+  closeEditor(true); schedule();
+}
+function fit() {
+  const B = pageBox() || unionBox(objs) || { x: 0, y: 0, w: 100, h: 60 }, W = wrap.clientWidth, H = wrap.clientHeight, m = 8;
+  view.z = clamp(Math.min(W / (B.w + 2 * m), H / (B.h + 2 * m)), .4, 80);
+  view.px = (W - B.w * view.z) / 2 - B.x * view.z; view.py = (H - B.h * view.z) / 2 - B.y * view.z;
+  schedule();
+}
+function toWorld(e) { const r = svg.getBoundingClientRect(); return { x: (e.clientX - r.left - view.px) / view.z, y: (e.clientY - r.top - view.py) / view.z }; }
+function setTool(t) {
+  if (fmtPaint) endPaint();
+  if (t !== 'qm') qm = null;
+  if (poly) finishPoly();
+  if (placing) { placing = null; document.querySelectorAll('.tile.on').forEach(b => b.classList.remove('on')); }
+  tool = t; hover = null;
+  document.querySelectorAll('.tool').forEach(b => b.setAttribute('aria-pressed', b.dataset.tool === t ? 'true' : 'false'));
+  svg.setAttribute('class', 't-' + t); schedule();
+}
+
+/* ───────────── pointer interaction ───────────── */
+svg.addEventListener('contextmenu', e => e.preventDefault());
+svg.addEventListener('pointerdown', e => {
+  if (paused) return;
+  flushPanelInput();
+  if (fmtPaint && e.button === 0) {
+    const el = e.target.closest('[data-id]'), o = el && byId(el.dataset.id);
+    if (!o) { endPaint(); return; }
+    if (applyFormat(o, fmtPaint)) { commit(); schedule(); renderPanel(); if (!fmtPaint.sticky) endPaint(); }
+    else toast('Format pastes only onto the same kind of object: blocks, text boxes, connectors, lines or dimensions');
+    return;
+  }
+  if (editor.style.display === 'block') closeEditor(true);
+  svg.setPointerCapture(e.pointerId);
+  const p = toWorld(e);
+  if (e.button === 2 && (e.ctrlKey || e.metaKey || e.shiftKey)) {
+    const r = svg.getBoundingClientRect(), ax = e.clientX - r.left, ay = e.clientY - r.top;
+    drag = { k: 'zoom', sx: e.clientX, sy: e.clientY, z0: view.z, ax, ay, wx: (ax - view.px) / view.z, wy: (ay - view.py) / view.z };
+    svg.style.cursor = 'zoom-in'; return;
+  }
+  if (placing) {
+    if (e.button === 0) { const t = placing, r = placeRot; if (!e.shiftKey) stopPlacing(); if (typeof t === 'object') dropClip(t, p); else addShape(t, p.x, p.y, r); return; }
+    if (e.button === 2) { stopPlacing(); return; }
+  }
+  /* while drawing, right-drag pans like everywhere else; the drawing carries on */
+  if (spaceDown) spaceUsed = true;
+  if (e.button === 1 || e.button === 2 || spaceDown) { drag = { k: 'pan', sx: e.clientX, sy: e.clientY, px: view.px, py: view.py }; svg.classList.add('panning'); return; }
+  if (e.button !== 0) return;
+
+  if (tool === 'text') {
+    const o = newShape('text', 0, 0); o.x = snapv(p.x, e); o.y = snapv(p.y, e); o.label = '';
+    objs.push(o); sel = new Set([o.id]); setTool('select'); schedule(); renderPanel();
+    requestAnimationFrame(() => openEditor(o, true)); return;
+  }
+  if (tool === 'qm') {
+    if (!qm) { const q = pickPoint(p, e, 'line'); qm = { a: { x: q.x, y: q.y }, b: { x: q.x, y: q.y }, done: false }; }
+    else if (!qm.done) { const q = pickPoint(p, e, 'line', qm.a); measures.push({ a: qm.a, b: { x: q.x, y: q.y } }); qm = null; hover = null; setTool('select'); }
+    else { setTool('select'); }
+    schedule(); return;
+  }
+  if (tool === 'line' || tool === 'dim' || tool === 'wire') {
+    /* Altium-style: click to start, click each corner, double-click (or Esc / right-click) to finish; connectors end on the second click */
+    const now = performance.now();
+    if (!poly) {
+      const kind = tool, q = pickPoint(p, e, kind === 'wire' ? 'wire' : 'line'), st = k => Object.assign({}, k, lastStyle[kind] || {});
+      const o = kind === 'dim' ? { id: uid(), type: 'dim', a: { x: q.x, y: q.y }, b: { x: q.x, y: q.y }, mid: [], style: st(DIM_STYLE) }
+        : kind === 'wire' ? { id: uid(), type: 'wire', a: q, b: { x: q.x, y: q.y }, style: st(WIRE_STYLE) }
+        : { id: uid(), type: 'wire', kind: 'line', a: { x: q.x, y: q.y }, b: { x: q.x, y: q.y }, mid: [], style: st(LINE_STYLE) };
+      objs.push(o); sel = new Set([o.id]); poly = { o, t: now, kind, conn: kind === 'wire', pressed: { x: e.clientX, y: e.clientY } }; schedule(); renderPanel(); return;
+    }
+    const o = poly.o;
+    if (poly.conn) { finishPoly(true); return; }
+    const last = o.mid.length ? o.mid[o.mid.length - 1] : o.a, near = Math.hypot(o.b.x - last.x, o.b.y - last.y) * view.z < 6;
+    const dbl = now - poly.t < 450 && near; poly.t = now;
+    if (dbl) { finishPoly(); return; }
+    if (!near) o.mid.push({ x: o.b.x, y: o.b.y });
+    schedule(); return;
+  }
+  if (tool === 'wire' || tool === 'dim' || tool === 'line') {
+    const q = pickPoint(p, e, tool), o = tool === 'wire'
+      ? { id: uid(), type: 'wire', a: q, b: { x: q.x, y: q.y }, style: Object.assign({}, WIRE_STYLE) }
+      : tool === 'line' ? { id: uid(), type: 'wire', kind: 'line', a: { x: q.x, y: q.y }, b: { x: q.x, y: q.y }, style: Object.assign({}, LINE_STYLE) }
+      : { id: uid(), type: 'dim', a: { x: q.x, y: q.y }, b: { x: q.x, y: q.y }, style: Object.assign({}, DIM_STYLE) };
+    objs.push(o); sel = new Set([o.id]); drag = { k: 'end', o, end: 'b', creating: true }; schedule(); return;
+  }
+  const hEl = e.target.closest('[data-h]');
+  if (hEl) {
+    const o = selected()[0], h = hEl.dataset.h;
+    svg.style.cursor = hEl.style.cursor;
+    if (o.type === 'shape') drag = { k: 'resize', o, h, orig: { x: o.x, y: o.y, w: o.w, h: o.h }, targets: objs.filter(x => x.type === 'shape' && x.id !== o.id).map(bboxOf), lock: { x: null, y: null }, guides: [] };
+    else if (h[0] === 'm') drag = { k: 'vert', o, i: +h.slice(1) };
+    else if (h[0] === 's') drag = { k: 'seg', o, i: +h.slice(1), p0: p, orig: vertsOf(o).map(q => ({ x: q.x, y: q.y })) };
+    else if (h === 'j') drag = { k: 'jog', o };
+    else drag = { k: 'end', o, end: h };
+    return;
+  }
+  const oEl0 = e.target.closest('[data-id]'), oEl = oEl0 && passes(byId(oEl0.dataset.id)) ? oEl0 : null;
+  if (oEl) {
+    const id = oEl.dataset.id, ob = byId(id), now = performance.now();
+    if (ob && lastTap && lastTap.id === id && now - lastTap.t < 450) {
+      lastTap = null; sel = new Set([id]); renderPanel(); schedule();
+      if (ob.type === 'shape' || ob.type === 'wire') requestAnimationFrame(() => openEditor(ob, false));
+      else if (ob.type === 'dim') requestAnimationFrame(() => { const f = document.querySelector('[data-s="len"]'); if (f) { f.focus(); f.select(); } });
+      return;
+    }
+    lastTap = { id, t: now };
+    if (ob && (ob.lock || (ob.t === 'pcb' && !sel.has(id))) && !e.shiftKey) { sel.clear(); renderPanel(); drag = { k: 'band', a: p, b: p, base: new Set(), lockedClick: id }; schedule(); return; }
+    if (e.shiftKey) { const grp = withGroups(new Set([id])), on = sel.has(id); grp.forEach(x => on ? sel.delete(x) : sel.add(x)); schedule(); renderPanel(); return; }
+    if (!sel.has(id)) { sel = withGroups(new Set([id])); renderPanel(); }
+    const items = selected();
+    svg.style.cursor = 'move';
+    drag = { k: 'move', p0: p, items, orig: items.map(o => JSON.parse(JSON.stringify(o.type === 'shape' ? { x: o.x, y: o.y } : { a: o.a, b: o.b, mid: o.mid }))), moved: false, detach: !!(e.ctrlKey || e.metaKey), box0: unionBox(items), targets: objs.filter(o => o.type === 'shape' && !sel.has(o.id)).map(bboxOf), lock: { x: null, y: null }, guides: [] };
+    schedule(); return;
+  }
+  if (!e.shiftKey) { sel.clear(); renderPanel(); }
+  drag = { k: 'band', a: p, b: p, base: new Set(sel) }; schedule();
+});
+svg.addEventListener('pointermove', e => {
+  if (paused) return;
+  /* right (or middle) button pressed during a left-button drag pans the page; the dragged item stays under the cursor */
+  if (drag && drag.k !== 'pan' && drag.k !== 'zoom') {
+    if (e.buttons & 6) {
+      if (!drag.pan) { drag.pan = { sx: e.clientX, sy: e.clientY, px: view.px, py: view.py }; svg.classList.add('panning'); }
+      view.px = drag.pan.px + e.clientX - drag.pan.sx; view.py = drag.pan.py + e.clientY - drag.pan.sy;
+    } else if (drag.pan) { drag.pan = null; svg.classList.remove('panning'); }
+  }
+  const p = toWorld(e); cursorW = p;
+  $('#stX').textContent = p.x.toFixed(1); $('#stY').textContent = p.y.toFixed(1);
+  if (!drag && tool === 'qm') {
+    if (qm && !qm.done) { const q = pickPoint(p, e, 'line', qm.a); qm.b = { x: q.x, y: q.y }; }
+    hover = (!qm || !qm.done) && !e.altKey ? snapGeom(p, null, true) : null; schedule(); return;
+  }
+  if (!drag && poly) {
+    if (!objs.includes(poly.o)) { poly = null; }
+    else {
+      const o = poly.o;
+      if (poly.conn) { const q = pickPoint(p, e, 'wire', endPos(o.a), o.id); o.b = q; hover = q.id ? q : null; schedule(); return; }
+      const last = o.mid.length ? o.mid[o.mid.length - 1] : o.a, q = pickPoint(p, e, 'line', last, o.id);
+      o.b = { x: q.x, y: q.y }; hover = (!e.altKey && snapGeom(p, o.id, true)) ? q : null; schedule(); return;
+    }
+  }
+  if (!drag) {
+    if (tool === 'wire') hover = (e.altKey ? null : snapPort(p));
+    else if (tool === 'dim' || tool === 'line') hover = (e.altKey ? null : snapGeom(p, null, tool === 'line'));
+    else hover = null;
+    schedule(); return;
+  }
+  if (drag.k === 'zoom') {
+    /* Ctrl (or Shift) + right-drag: up or right zooms in, down or left zooms out, anchored where the drag began */
+    const f = Math.exp(((e.clientX - drag.sx) - (e.clientY - drag.sy)) * .008);
+    view.z = clamp(drag.z0 * f, .4, 80); view.px = drag.ax - drag.wx * view.z; view.py = drag.ay - drag.wy * view.z;
+    svg.style.cursor = f >= 1 ? 'zoom-in' : 'zoom-out'; closeEditor(true); schedule(); return;
+  }
+  if (drag.k === 'seg') {
+    let dx = p.x - drag.p0.x, dy = p.y - drag.p0.y; const A = drag.orig[drag.i], B = drag.orig[drag.i + 1];
+    if (e.shiftKey || drag.o.style.route === 'ortho') { const L = Math.hypot(B.x - A.x, B.y - A.y) || 1, nx = -(B.y - A.y) / L, ny = (B.x - A.x) / L, d = dx * nx + dy * ny; dx = nx * d; dy = ny * d; }
+    dx = snapv(dx, e); dy = snapv(dy, e);
+    setVert(drag.o, drag.i, { x: A.x + dx, y: A.y + dy }); setVert(drag.o, drag.i + 1, { x: B.x + dx, y: B.y + dy });
+    drag.moved = true; schedule(); updateGeoFields(); return;
+  }
+  if (drag.k === 'jog') {
+    const o = drag.o, a = endPos(o.a), b = endPos(o.b), pts = wirePts(o), vert = pts.length === 4 && Math.abs(pts[1].x - pts[2].x) < 1e-9;
+    if (vert && Math.abs(b.x - a.x) > 1e-9) o.jt = (snapv(p.x, e) - a.x) / (b.x - a.x);
+    else if (!vert && Math.abs(b.y - a.y) > 1e-9) o.jt = (snapv(p.y, e) - a.y) / (b.y - a.y);
+    drag.moved = true; schedule(); return;
+  }
+  if (drag.k === 'vert') { const q = pickPoint(p, e, 'line', null, drag.o.id); drag.o.mid[drag.i] = { x: q.x, y: q.y }; drag.moved = true; schedule(); return; }
+  if (drag.k === 'pan') { view.px = drag.px + e.clientX - drag.sx; view.py = drag.py + e.clientY - drag.sy; schedule(); return; }
+  if (drag.k === 'band') {
+    drag.b = p; const x0 = Math.min(drag.a.x, p.x), x1 = Math.max(drag.a.x, p.x), y0 = Math.min(drag.a.y, p.y), y1 = Math.max(drag.a.y, p.y);
+    sel = new Set(drag.base);
+    objs.forEach(o => { if (!o.lock && passes(o) && bandHits(o, x0, y0, x1, y1)) sel.add(o.id); }); withGroups(sel); sel = new Set([...sel].filter(id => drag.base.has(id) || passes(byId(id))));
+    schedule(); return;
+  }
+  if (drag.k === 'move') {
+    let dx = p.x - drag.p0.x, dy = p.y - drag.p0.y;
+    const rdx = dx, rdy = dy;
+    const i0 = drag.items.findIndex(o => o.type === 'shape');
+    if (i0 >= 0) { const o0 = drag.orig[i0]; dx = snapv(o0.x + dx, e) - o0.x; dy = snapv(o0.y + dy, e) - o0.y; }
+    else if (drag.orig.length) { const a0 = drag.orig[0].a.x != null ? drag.orig[0].a : endPos(drag.items[0].a); dx = snapv(a0.x + dx, e) - a0.x; dy = snapv(a0.y + dy, e) - a0.y; }
+    if (drag.detach && (rdx || rdy)) { detachFrom(drag.items); drag.detach = false; }
+    const gx = guideAxis('x', rdx, e), gy = guideAxis('y', rdy, e);
+    if (gx !== null) dx = gx; if (gy !== null) dy = gy;
+    drag.guides = computeGuides(dx, dy);
+    if (dx || dy) drag.moved = true;
+    moveBy(drag.items, dx, dy, drag.orig); schedule(); updateGeoFields(); return;
+  }
+  if (drag.k === 'resize') {
+    const { o, h, orig } = drag, MIN = .5;
+    let l = orig.x, t = orig.y, r = orig.x + orig.w, b = orig.y + orig.h;
+    let px = snapv(p.x, e), py = snapv(p.y, e);
+    const gx = (h.includes('w') || h.includes('e')) ? edgeGuide('x', p.x, e) : (drag.lock.x = null);
+    const gy = (h.includes('n') || h.includes('s')) ? edgeGuide('y', p.y, e) : (drag.lock.y = null);
+    if (gx !== null) px = gx; if (gy !== null) py = gy;
+    if (h.includes('w')) l = Math.min(px, r - MIN);
+    if (h.includes('e')) r = Math.max(px, l + MIN);
+    if (h.includes('n')) t = Math.min(py, b - MIN);
+    if (h.includes('s')) b = Math.max(py, t + MIN);
+    const sq = LIBM[o.t] && LIBM[o.t].square;
+    if (sq && h.length === 1) {
+      if (h === 'e' || h === 'w') { const d = r - l, cy = orig.y + orig.h / 2; t = cy - d / 2; b = cy + d / 2; }
+      else { const d = b - t, cx = orig.x + orig.w / 2; l = cx - d / 2; r = cx + d / 2; }
+    } else if ((e.shiftKey || sq) && h.length === 2) {
+      const ratio = orig.w / orig.h, nw = r - l, nh = b - t;
+      if (nw / nh > ratio) { const H2 = nw / ratio; if (h.includes('n')) t = b - H2; else b = t + H2; }
+      else { const W2 = nh * ratio; if (h.includes('w')) l = r - W2; else r = l + W2; }
+    }
+    o.x = l; o.y = t; o.w = r - l; o.h = b - t; o.auto = false; drag.moved = true;
+    drag.guides = computeGuidesBox({ x: o.x, y: o.y, w: o.w, h: o.h });
+    schedule(); updateGeoFields(); return;
+  }
+  if (drag.k === 'end') {
+    const o = drag.o, otherK = drag.end === 'a' ? 'b' : 'a', other = o.type === 'wire' ? endPos(o[otherK]) : o[otherK];
+    const kind = o.type === 'dim' ? 'dim' : o.kind === 'line' ? 'line' : 'wire';
+    const q = pickPoint(p, e, kind, other, o.id);
+    const pinned = !e.altKey && (kind === 'wire' ? q.id : snapGeom(p, o.id, kind === 'line'));
+    if (!drag.targets) { drag.targets = guideTargets(o.id); drag.lock = { x: null, y: null }; }
+    if (!pinned) {
+      const only = e.shiftKey ? (Math.abs(q.x - other.x) > Math.abs(q.y - other.y) ? 'x' : 'y') : null;
+      if (!only || only === 'x') { const g = edgeGuide('x', p.x, e); if (g !== null) q.x = g; } else drag.lock.x = null;
+      if (!only || only === 'y') { const g = edgeGuide('y', p.y, e); if (g !== null) q.y = g; } else drag.lock.y = null;
+    } else { drag.lock.x = null; drag.lock.y = null; }
+    o[drag.end] = kind === 'wire' ? q : { x: q.x, y: q.y };
+    drag.guides = computeGuidesBox({ x: q.x, y: q.y, w: 0, h: 0 });
+    hover = pinned ? q : null;
+    drag.moved = true; schedule(); updateGeoFields();
+  }
+});
+function segRect(p, q, x0, y0, x1, y1) {
+  let t0 = 0, t1 = 1; const dx = q.x - p.x, dy = q.y - p.y;
+  const P = [-dx, dx, -dy, dy], Q = [p.x - x0, x1 - p.x, p.y - y0, y1 - p.y];
+  for (let i = 0; i < 4; i++) {
+    if (P[i] === 0) { if (Q[i] < 0) return false; }
+    else { const t = Q[i] / P[i]; if (P[i] < 0) { if (t > t1) return false; if (t > t0) t0 = t; } else { if (t < t0) return false; if (t < t1) t1 = t; } }
+  }
+  return true;
+}
+/* touch selection: anything the box touches is selected; a PCB only when fully enclosed */
+function bandHits(o, x0, y0, x1, y1) {
+  if (o.type === 'shape') {
+    if (o.t === 'pcb') return o.x >= x0 && o.y >= y0 && o.x + o.w <= x1 && o.y + o.h <= y1;
+    if (o.x > x1 || o.x + o.w < x0 || o.y > y1 || o.y + o.h < y0) return false;
+    const inside = x0 > o.x && x1 < o.x + o.w && y0 > o.y && y1 < o.y + o.h;
+    return !inside || o.style.fillOn;
+  }
+  const pts = ptsOf(o);
+  for (let i = 1; i < pts.length; i++) if (segRect(pts[i - 1], pts[i], x0, y0, x1, y1)) return true;
+  return false;
+}
+/* smart guides: snap edges/centers to other shapes, sticky until pulled away */
+function guideAxis(ax, raw, e) {
+  if (!drag.box0 || e.altKey || !drag.targets.length) { if (drag.lock) drag.lock[ax] = null; return null; }
+  const B = drag.box0, enter = 6 / view.z, leave = 15 / view.z;
+  const pos = (ax === 'x' ? B.x : B.y) + raw, size = ax === 'x' ? B.w : B.h, mine = [pos, pos + size / 2, pos + size];
+  let best = null;
+  const consider = t => mine.forEach(m => { const d = t - m, ad = Math.abs(d); if (!best || ad < best.ad) best = { ad, d, t }; });
+  if (drag.lock[ax] !== null) { consider(drag.lock[ax]); if (best && best.ad < leave) return raw + best.d; drag.lock[ax] = null; best = null; }
+  drag.targets.forEach(b => (ax === 'x' ? [b.x, b.x + b.w / 2, b.x + b.w] : [b.y, b.y + b.h / 2, b.y + b.h]).forEach(consider));
+  if (best && best.ad < enter) { drag.lock[ax] = best.t; return raw + best.d; }
+  return null;
+}
+/* guide targets for line/dimension ends: shape boxes plus other lines' end points */
+function guideTargets(skipId) {
+  const out = [];
+  objs.forEach(x => {
+    if (x.id === skipId) return;
+    if (x.type === 'shape') out.push(bboxOf(x));
+    else (x.type === 'wire' ? [endPos(x.a), endPos(x.b)] : ptsOf(x)).forEach(pt => out.push({ x: pt.x, y: pt.y, w: 0, h: 0 }));
+  });
+  return out;
+}
+/* resize: snap the dragged edge to other shapes' edges and centers, same sticky feel */
+function edgeGuide(ax, v, e) {
+  if (!drag.targets || !drag.targets.length || e.altKey) { drag.lock[ax] = null; return null; }
+  const enter = 6 / view.z, leave = 15 / view.z;
+  if (drag.lock[ax] !== null) { if (Math.abs(drag.lock[ax] - v) < leave) return drag.lock[ax]; drag.lock[ax] = null; }
+  let best = null;
+  drag.targets.forEach(b => (ax === 'x' ? [b.x, b.x + b.w / 2, b.x + b.w] : [b.y, b.y + b.h / 2, b.y + b.h]).forEach(t => { const ad = Math.abs(t - v); if (!best || ad < best.ad) best = { ad, t }; }));
+  if (best && best.ad < enter) { drag.lock[ax] = best.t; return best.t; }
+  return null;
+}
+function computeGuides(dx, dy) {
+  const B = drag.box0; if (!B) return [];
+  return computeGuidesBox({ x: B.x + dx, y: B.y + dy, w: B.w, h: B.h });
+}
+function computeGuidesBox(M) {
+  const out = [], eps = 1e-3, ext = 2;
+  [['x', [M.x, M.x + M.w / 2, M.x + M.w]], ['y', [M.y, M.y + M.h / 2, M.y + M.h]]].forEach(([ax, mine]) => mine.forEach(v => {
+    let lo = ax === 'x' ? M.y : M.x, hi = ax === 'x' ? M.y + M.h : M.x + M.w, hit = false;
+    drag.targets.forEach(b => {
+      const vs = ax === 'x' ? [b.x, b.x + b.w / 2, b.x + b.w] : [b.y, b.y + b.h / 2, b.y + b.h];
+      if (vs.some(t => Math.abs(t - v) < eps)) { hit = true; lo = Math.min(lo, ax === 'x' ? b.y : b.x); hi = Math.max(hi, ax === 'x' ? b.y + b.h : b.x + b.w); }
+    });
+    if (hit && !out.some(g => g.ax === ax && Math.abs(g.v - v) < eps)) out.push({ ax, v, lo: lo - ext, hi: hi + ext });
+  }));
+  return out;
+}
+function endDrag() {
+  if (!drag) return;
+  const d = drag; drag = null; hover = null; svg.classList.remove('panning'); svg.style.cursor = '';
+  if (d.k === 'end' && d.creating) {
+    const o = d.o, A = o.type === 'wire' ? endPos(o.a) : o.a, B = o.type === 'wire' ? endPos(o.b) : o.b;
+    if (Math.hypot(A.x - B.x, A.y - B.y) < .3) { objs = objs.filter(x => x !== o); sel.clear(); }
+    else { commit(); setTool('select'); }
+    renderPanel();
+  } else if ((d.k === 'move' || d.k === 'resize' || d.k === 'end' || d.k === 'vert' || d.k === 'seg' || d.k === 'jog') && d.moved) { if (d.o && d.k !== 'resize') bakeOrtho(d.o); commit(); renderPanel(); }
+  else if (d.k === 'band') { if (d.lockedClick && Math.hypot(d.b.x - d.a.x, d.b.y - d.a.y) < 4 / view.z) sel = new Set([d.lockedClick]); renderPanel(); }
+  schedule();
+}
+svg.addEventListener('pointerup', e => {
+  if (poly && poly.pressed) { const pr = poly.pressed; poly.pressed = null; if (Math.hypot(e.clientX - pr.x, e.clientY - pr.y) > 6) { finishPoly(true); return; } }
+  endDrag();
+});
+svg.addEventListener('pointercancel', endDrag);
+svg.addEventListener('pointerleave', () => { if (!drag) { cursorW = null; hover = null; schedule(); } });
+svg.addEventListener('wheel', e => {
+  e.preventDefault();
+  const r = svg.getBoundingClientRect();
+  if (e.ctrlKey || e.metaKey) zoomAt(e.clientX - r.left, e.clientY - r.top, Math.exp(-e.deltaY * (e.deltaMode ? .05 : .0022)));
+  else { const k = e.deltaMode ? 16 : 1; if (e.shiftKey && !e.deltaX) view.px -= e.deltaY * k; else { view.px -= e.deltaX * k; view.py -= e.deltaY * k; } closeEditor(true); schedule(); }
+}, { passive: false });
+
+/* drag from library */
+wrap.addEventListener('dragover', e => { e.preventDefault(); e.dataTransfer.dropEffect = 'copy'; });
+wrap.addEventListener('drop', e => { e.preventDefault(); const t = e.dataTransfer.getData('text/plain'); if (LIBM[t]) { const p = toWorld(e); addShape(t, p.x, p.y); } });
+
+/* ───────────── inline text editor ───────────── */
+let editing = null;
+const measureCtx = document.createElement('canvas').getContext('2d');
+/* text boxes hug their text unless the user resized them by hand */
+function fitText(o) {
+  if (!o || o.t !== 'text' || o.auto === false) return;
+  const s = o.style, fs = s.fs * PT, lines = labelText(o).split('\n');
+  let wmax = 0;
+  try { measureCtx.font = `${s.i ? 'italic ' : ''}${s.b ? 600 : 400} ${fs * 10}px ${s.font}`; } catch (err) {}
+  lines.forEach(t => { const m = measureCtx && measureCtx.measureText ? measureCtx.measureText(t) : null; wmax = Math.max(wmax, (m && m.width ? m.width / 10 : t.length * fs * .55)); });
+  o.w = Math.max(2, +(wmax + 1).toFixed(2)); o.h = +(Math.max(fs * 1.25 * lines.length + .6, 2)).toFixed(2);
+}
+function openEditor(o, isNew) {
+  editing = { o, before: o.label || '', isNew };
+  placeEditor(o);
+  editor.value = o.label || ''; padEditor(); editor.focus(); editor.select();
+}
+function placeEditor(o) {
+  if (o.type === 'wire') { placeWireEditor(o); return; }
+  const s = o.style, z = view.z, lp = s.lp || 'in', rot = 0, sw90 = false;
+  const bw = sw90 ? o.h : o.w, bh = sw90 ? o.w : o.h;
+  const label = (editing && editing.o === o && editor.style.display === 'block') ? editor.value : o.label;
+  const nl = (label.match(/\n/g) || []).length + 1, lineH = s.fs * PT * 1.3;
+  let x = 0, y = 0, w = bw, h = bh;
+  if (lp === 'below') { h = Math.max(lineH * nl + .8, 4); w = Math.max(bw, 24); x = bw / 2 - w / 2; y = bh + .3; }
+  else if (lp === 'above') { h = Math.max(lineH * nl + .8, 4); w = Math.max(bw, 24); x = bw / 2 - w / 2; y = -h - .3; }
+  else if (lp === 'right') { w = 30; x = bw + .5; }
+  else if (lp === 'left') { w = 30; x = -w - .5; }
+  const dx = x + w / 2 - bw / 2, dy = y + h / 2 - bh / 2, r = rot * Math.PI / 180;
+  const cx = (o.x + o.w / 2 + dx * Math.cos(r) - dy * Math.sin(r)) * z + view.px, cy = (o.y + o.h / 2 + dx * Math.sin(r) + dy * Math.cos(r)) * z + view.py;
+  const W = Math.max(w * z + (o.t === 'text' ? 14 : 0), 60), H = Math.max(h * z, 22);
+  const isTxt = o.t === 'text' && !rot, left = isTxt ? o.x * z + view.px - 3 : cx - W / 2, top = isTxt ? o.y * z + view.py - 3 : cy - H / 2;
+  Object.assign(editor.style, {
+    display: 'block', left: left + 'px', top: top + 'px', width: W + 'px', height: H + 'px', transform: `rotate(${rot}deg)`,
+    fontSize: (s.fs * PT * z) + 'px', fontFamily: s.font, color: s.fc,
+    fontWeight: s.b ? '600' : '400', fontStyle: s.i ? 'italic' : 'normal', textDecoration: s.u ? 'underline' : 'none',
+    textAlign: lp === 'right' ? 'left' : lp === 'left' ? 'right' : s.ha
+  });
+  editor.dataset.va = lp === 'in' ? s.va : 'top';
+}
+function placeWireEditor(o) {
+  const s = o.style, z = view.z, label = (editing && editing.o === o && editor.style.display === 'block') ? editor.value : (o.label || '');
+  const Lw = wireLabelLayout(o, label || 'M');
+  const W = Math.max(Math.max(6, ...Lw.lines.map(t => t.length)) * Lw.fsm * .62 * z + 16, 60), H = Math.max(Lw.H * z + 6, 18);
+  const sx = Lw.x * z + view.px, left = Lw.anchor === 'middle' ? sx - W / 2 : Lw.anchor === 'start' ? sx - 3 : sx - W + 3;
+  Object.assign(editor.style, {
+    display: 'block', left: left + 'px', top: (Lw.top * z + view.py - 3) + 'px', width: W + 'px', height: H + 'px', transform: 'none',
+    fontSize: (Lw.fsm * z) + 'px', fontFamily: DEF_STYLE.font, color: s.fc || s.stroke, fontWeight: '400', fontStyle: 'normal', textDecoration: 'none',
+    textAlign: Lw.anchor === 'middle' ? 'center' : Lw.anchor === 'start' ? 'left' : 'right'
+  });
+  editor.dataset.va = 'top';
+}
+function padEditor() {
+  if (!editing) return;
+  const s = editing.o.style, n = (editor.value.match(/\n/g) || []).length + 1, lh = parseFloat(editor.style.fontSize) * 1.25, H = parseFloat(editor.style.height);
+  const free = Math.max(0, H - n * lh - 4), va = editor.dataset.va;
+  editor.style.paddingTop = (va === 'middle' ? free / 2 : va === 'bottom' ? free : 1) + 'px';
+}
+function closeEditor(keep) {
+  if (!editing) { editor.style.display = 'none'; return; }
+  const { o, before, isNew } = editing; editing = null; editor.style.display = 'none';
+  if (!keep) o.label = before;
+  fitText(o);
+  if (isNew && !o.label.trim()) { objs = objs.filter(x => x !== o); sel.delete(o.id); }
+  commit(); schedule(); renderPanel();
+}
+editor.addEventListener('input', () => { if (editing) { const o = editing.o; o.label = editor.value; if (o.t === 'text' || o.type === 'wire') { fitText(o); placeEditor(o); } padEditor(); schedule(); } });
+editor.addEventListener('blur', () => { if (editing) closeEditor(true); });
+editor.addEventListener('keydown', e => {
+  e.stopPropagation();
+  if (e.key === 'Escape') { e.preventDefault(); closeEditor(false); }
+  else if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); closeEditor(true); }
+});
+
+/* ───────────── properties panel ───────────── */
+const opt = (v, cur, label) => `<option value="${esc(v)}"${String(v) === String(cur) ? ' selected' : ''}>${esc(label)}</option>`;
+const numF = (k, label, v, st, scope, unit = 'mm', extra = '') => `<label class="f"><span>${label}</span><input type="number" data-k="${k}" data-s="${scope}" step="${st}" value="${fmt(v)}"${extra}>${unit ? `<i>${unit}</i>` : ''}</label>`;
+const segF = (k, cur, opts) => `<div class="seg">${opts.map(([v, l, t]) => `<button type="button" data-act="seg" data-k="${k}" data-v="${v}" class="${String(cur) === String(v) ? 'on' : ''}" title="${t || ''}">${l}</button>`).join('')}</div>`;
+const swF = k => `<div class="sw">${SWATCH.map(c => `<button type="button" data-act="swatch" data-k="${k}" data-v="${c}" style="background:${c}" title="${c}"></button>`).join('')}</div>`;
+
+function renderPanel() {
+  const Pn = $('#propsBody'), items = selected();
+  if (!items.length) { Pn.innerHTML = pageHTML() + helpHTML(); return; }
+  const one = items.length === 1 ? items[0] : null, shapes = items.filter(o => o.type === 'shape'), wires = items.filter(o => o.type === 'wire'), dims = items.filter(o => o.type === 'dim');
+  let h = '<div class="sec">';
+  if (one) h += `<p class="title">${one.type === 'shape' ? esc(LIBM[one.t].n) : one.type === 'wire' ? (one.kind === 'line' ? 'Line' : 'Connector') : 'Dimension'}</p>${one.lock ? '<p class="sub">Locked: it stays in place, and you can drag a selection box on top of it.</p>' : ''}`;
+  else h += `<p class="title">${items.every(o => o.g && o.g === items[0].g) ? `Group of ${items.length} objects` : `${items.length} objects selected`}</p>`;
+  h += `<div class="acts" style="margin-top:8px">
+    <button class="btn" data-act="dup" title="Ctrl+D">Duplicate</button>
+    ${items.length > 1 && !(items.every(o => o.g && o.g === items[0].g)) ? '<button class="btn" data-act="group" title="Ctrl+G">Group</button>' : ''}
+    ${items.some(o => o.g) ? '<button class="btn" data-act="ungroup" title="Ctrl+Shift+G">Ungroup</button>' : ''}
+    <button class="btn" data-act="rot" title="Space or Ctrl+R">Rotate 90°</button>
+    ${shapes.length ? `<button class="btn" data-act="lock">${shapes.every(o => o.lock) ? 'Unlock' : 'Lock'}</button>` : ''}
+    <button class="btn" data-act="front" title="]">To front</button>
+    <button class="btn" data-act="back" title="[">To back</button>
+    <button class="btn" data-act="del" title="Delete">Delete</button></div></div>`;
+
+  if (one && one.type === 'shape') {
+    h += `<div class="sec"><h4>Position and size</h4><div class="g2">
+      ${numF('x', 'X', one.x, .1, 'geo')}${numF('y', 'Y', one.y, .1, 'geo')}
+      ${numF('w', 'W', one.w, .1, 'geo', 'mm', ' min="0.1" title="Width"')}${numF('h', 'H', one.h, .1, 'geo', 'mm', ' min="0.1" title="Height"')}
+      </div><div class="row"><span class="f"><span>Rotate</span></span>${segF('rot', one.rot || 0, [[0, '0°'], [90, '90°'], [180, '180°'], [270, '270°']])}</div>
+      <p class="sub" style="margin-top:8px">Type a value and press Enter to apply.</p></div>`;
+  }
+  if (one && one.type !== 'shape') {
+    const A = one.type === 'wire' ? endPos(one.a) : one.a, B = one.type === 'wire' ? endPos(one.b) : one.b;
+    h += `<div class="sec"><h4>Start and end points</h4><div class="g2">
+      ${numF('a.x', 'X1', A.x, .1, 'pt')}${numF('a.y', 'Y1', A.y, .1, 'pt')}
+      ${numF('b.x', 'X2', B.x, .1, 'pt')}${numF('b.y', 'Y2', B.y, .1, 'pt')}</div>
+      <p class="sub" style="margin-top:8px">Type a value and press Enter to apply.${one.type === 'wire' && (one.a.id || one.b.id) ? ' Editing an end that sits on a port detaches it from that port.' : ''}</p></div>`;
+  }
+  if (one && one.type === 'dim') {
+    const g0 = dimGeom(one), multi = !!(one.mid && one.mid.length), T = dimTotal(one);
+    h += `<div class="sec"><h4>Dimension</h4><div class="len">${T.toFixed(one.style.dec)} mm</div>${multi ? `<p class="sub" style="margin:2px 0 0">Total of ${one.mid.length + 1} spans</p>` : ''}
+      <div class="g2" style="margin-top:8px">${multi ? '' : numF('len', 'Length', g0.L, .1, 'len')}${numF('dec', 'Decimals', one.style.dec, 1, 'style', '', ' min="0" max="3"')}
+      ${numF('off', 'Text gap', one.style.off, .1, 'style')}${numF('fs', 'Text', one.style.fs, .5, 'style', 'pt')}</div>
+      <div class="row"><span class="f"><span>Route</span></span>${segF('route', one.style.route || 'straight', [['straight', 'Straight'], ['ortho', 'Orthogonal']])}</div>
+      <p class="sub" style="margin-top:8px">Drag the ends or the square corner handles. Points snap to corners, edge midpoints and pins; Shift locks horizontal or vertical.</p></div>`;
+  }
+  if (shapes.length) {
+    const s = shapes[0].style;
+    h += `<div class="sec"><h4>Text</h4>`;
+    if (one && one.type === 'shape') h += `<textarea data-k="label" data-s="label" rows="2" placeholder="Label text">${esc(one.label)}</textarea><p class="sub" style="margin:4px 0 0">Enter applies, Shift+Enter adds a line. Double-click the shape to type on the canvas. {w} and {h} print the real width and height.</p>`;
+    h += `<div class="row"><label class="f" style="flex:1"><select data-k="font" data-s="style" aria-label="Font">${FONTS.map(([v, l]) => opt(v, s.font, l)).join('')}</select></label>
+      <label class="f" style="width:84px"><input type="number" data-k="fs" data-s="style" step="0.5" min="2" value="${s.fs}" aria-label="Font size"><i>pt</i></label></div>
+      <div class="row">${segF('b', s.b, [[true, '<b>B</b>', 'Bold']])}${segF('i', s.i, [[true, '<i>I</i>', 'Italic']])}${segF('u', s.u, [[true, '<u>U</u>', 'Underline']])}
+      <input type="color" data-k="fc" data-s="style" value="${s.fc}" title="Text color"></div>
+      ${swF('fc')}
+      <div class="row">${segF('ha', s.ha, [['left', '⇤', 'Align left'], ['center', '↔', 'Center'], ['right', '⇥', 'Align right']])}
+      ${segF('va', s.va, [['top', '⤒', 'Top'], ['middle', '↕', 'Middle'], ['bottom', '⤓', 'Bottom']])}</div>
+      <div class="row"><label class="f" style="flex:1"><span>Placement</span><select data-k="lp" data-s="style">${[['in', 'Inside'], ['below', 'Below'], ['above', 'Above'], ['right', 'Right'], ['left', 'Left']].map(([v, l]) => opt(v, s.lp, l)).join('')}</select></label></div></div>`;
+    h += `<div class="sec"><h4>Appearance</h4>
+      <div class="row" style="margin-top:0"><label class="chk"><input type="checkbox" data-k="fillOn" data-s="style"${s.fillOn ? ' checked' : ''}>Fill</label><input type="color" data-k="fill" data-s="style" value="${s.fill}" title="Fill color"></div>${swF('fill')}
+      <div class="row"><label class="chk"><input type="checkbox" data-k="strokeOn" data-s="style"${s.strokeOn ? ' checked' : ''}>Line</label><input type="color" data-k="stroke" data-s="style" value="${s.stroke}" title="Line color"></div>${swF('stroke')}
+      <div class="g2" style="margin-top:8px">${numF('sw', 'Width', s.sw, .05, 'style', 'mm', ' min="0.01"')}
+      <label class="f"><span>Style</span><select data-k="dash" data-s="style">${opt('solid', s.dash, 'Solid')}${opt('dash', s.dash, 'Dashed')}${opt('dot', s.dash, 'Dotted')}</select></label></div>
+      <div class="row"><label class="f" style="flex:1"><span>Opacity</span><input type="range" data-k="op" data-s="style" min="0.1" max="1" step="0.05" value="${s.op}" style="flex:1"></label></div></div>`;
+  }
+  if (wires.length || dims.length) {
+    const s = (wires[0] || dims[0]).style;
+    h += `<div class="sec"><h4>${wires.length ? 'Line' : 'Appearance'}</h4>
+      <div class="row" style="margin-top:0"><span class="f"><span>Color</span></span><input type="color" data-k="color" data-s="style" value="${s.stroke}"></div>${swF('color')}
+      <div class="g2" style="margin-top:8px">${numF('sw', 'Width', s.sw, .05, 'style', 'mm', ' min="0.01"')}${numF('as', wires.length ? 'Ends' : 'Arrow', s.as, .1, 'style', 'mm', ' min="0.2" title="Size of the line ends"')}</div>`;
+    if (wires.length) {
+      const w = wires[0].style;
+      const capSel = k => `<select data-k="${k}" data-s="style">${CAPS.map(([v, l]) => opt(v, w[k] || 'none', l)).join('')}</select>`;
+      h += `<div class="g2" style="margin-top:8px"><label class="f"><span>Start</span>${capSel('startCap')}</label><label class="f"><span>End</span>${capSel('endCap')}</label></div>
+        <div class="row"><button class="btn" data-act="swapcaps" style="border:1px solid var(--line);height:26px;font-size:12px">Swap ends</button>
+        <label class="f" style="flex:1"><span>Style</span><select data-k="dash" data-s="style">${opt('solid', w.dash, 'Solid')}${opt('dash', w.dash, 'Dashed')}${opt('dot', w.dash, 'Dotted')}</select></label></div>
+        <div class="row"><span class="f"><span>Route</span></span>${segF('route', w.route, [['straight', 'Straight'], ['ortho', 'Orthogonal']])}</div>`;
+    }
+    h += '</div>';
+  }
+  if (wires.length) {
+    const w = wires[0].style, G = wireLabelGeom(wires[0]);
+    h += `<div class="sec"><h4>Line text</h4>${one && one.type === 'wire' ? `<textarea data-k="label" data-s="label" rows="1" placeholder="e.g. +10 dBm">${esc(one.label || '')}</textarea><p class="sub" style="margin:4px 0 0">Double-click the line to type on it. Enter applies.</p>` : ''}
+      <div class="row"><label class="f" style="width:92px"><input type="number" data-k="fs" data-s="style" step="0.5" min="2" value="${fmt(G.fs)}" aria-label="Text size"><i>pt</i></label>
+      <label class="chk"><input type="checkbox" data-k="lauto" data-s="style"${w.lauto !== false ? ' checked' : ''}>Size from line length</label></div>
+      <div class="row"><span class="f"><span>Text color</span></span></div>${swF('fc')}
+      <div class="row"><span class="f"><span>Position</span></span>${segF('lpos', w.lpos || 'above', [['above', 'Above / left'], ['below', 'Below / right']])}</div>
+      <div class="g2" style="margin-top:8px">${numF('lgap', 'Gap', w.lgap != null ? w.lgap : .6, .1, 'style')}</div></div>`;
+  }
+  if (items.length > 1) {
+    h += `<div class="sec"><h4>Align</h4><div class="acts">
+      <button class="btn" data-act="al" data-v="l">Left</button><button class="btn" data-act="al" data-v="c">Center</button><button class="btn" data-act="al" data-v="r">Right</button>
+      <button class="btn" data-act="al" data-v="t">Top</button><button class="btn" data-act="al" data-v="m">Middle</button><button class="btn" data-act="al" data-v="b">Bottom</button>
+      ${items.length > 2 ? '<button class="btn" data-act="al" data-v="dh">Space horizontally</button><button class="btn" data-act="al" data-v="dv">Space vertically</button>' : ''}</div></div>`;
+  }
+  Pn.innerHTML = h;
+}
+function helpHTML() {
+  return `<div class="sec help"><p class="title" style="margin-bottom:6px">Getting started</p>
+  <p>Click a shape in the library and it follows your mouse; click on the page to drop it. Shift+click drops more copies, Esc cancels. You can also drag a shape straight onto the canvas. Small grid squares are 1 mm, large ones 10 mm. Shapes arrive without text, so you can label them however you like.</p>
+  <dl>
+  <dt><kbd>V</kbd></dt><dd>Select and move</dd>
+  <dt><kbd>T</kbd></dt><dd>Text box</dd>
+  <dt><kbd>W</kbd></dt><dd>Connector: click a start and an end, it snaps to pins</dd>
+  <dt><kbd>Tab</kbd></dt><dd>While drawing a line, connector or dimension: pause and set its properties, Tab again to continue. Those settings carry over to the next ones</dd>
+  <dt>Blue diamonds</dt><dd>Middle of each line segment: drag to shift that segment, Shift keeps it sideways only</dd>
+  <dt><kbd>L</kbd></dt><dd>Free line: click to start, click each corner, double-click to finish. Esc cancels; right-drag pans while you draw</dd>
+  <dt><kbd>Ctrl</kbd> <kbd>M</kbd></dt><dd>Quick measure: click two points to read ΔX, ΔY and distance. Readouts stay on screen until Shift+C. Nothing is added to the drawing</dd>
+  <dt><kbd>M</kbd></dt><dd>Dimension: click corner by corner like a line; every span shows its own length. Double-click finishes, Esc cancels</dd>
+  <dt><kbd>Ctrl</kbd> + drag</dt><dd>Pull a block away from the connectors attached to it</dd>
+  <dt><kbd>Space</kbd> or <kbd>Ctrl</kbd> <kbd>R</kbd></dt><dd>Rotate the selection 90° as one piece. Also works while dragging, pasting or placing; text stays upright</dd>
+  <dt><kbd>Ctrl</kbd> <kbd>C</kbd> <kbd>V</kbd></dt><dd>Copy, then the copy follows the mouse until you click</dd>
+  <dt><kbd>Ctrl</kbd> <kbd>D</kbd></dt><dd>Duplicate next to the original</dd>
+  <dt>Format</dt><dd>Select an object, press Format (brush) and click another object of the same kind to give it the same look. Double-click Format to paint several. Ctrl+Shift+C and Ctrl+Shift+V copy and paste a format onto the selection</dd>
+  <dt><kbd>G</kbd></dt><dd>Quick grid menu: pick a snap grid with 1 to 6, V shows or hides the grid, S toggles snapping</dd>
+  <dt>Filter</dt><dd>Toolbar Filter chooses which kinds of objects selection boxes, clicks and Ctrl+A can pick</dd>
+  <dt><kbd>Ctrl</kbd> <kbd>G</kbd></dt><dd>Group the selection; Ctrl+Shift+G ungroups. Double-click a member to edit its text</dd>
+  <dt>Line text</dt><dd>Double-click a line or connector to write on it, for example the RF power</dd>
+  <dt><kbd>Ctrl</kbd> + right-drag</dt><dd>Zoom: drag up or right to zoom in, down or left to zoom out</dd>
+  <dt>Arrow keys</dt><dd>Nudge one step, ten with Shift</dd>
+  <dt>Pink dashes</dt><dd>Appear while moving, resizing or dragging line and dimension ends when things line up; it holds there until you pull further away</dd>
+  <dt><kbd>Alt</kbd></dt><dd>Hold to bypass grid and guide snapping</dd>
+  <dt><kbd>Shift</kbd></dt><dd>Keeps proportions on corner resize, locks lines horizontal or vertical</dd>
+  <dt>Double-click</dt><dd>Type directly into a shape</dd>
+  <dt>Selection box</dt><dd>Anything the box touches is selected. The PCB is picked only when fully enclosed</dd>
+  <dt>PCB</dt><dd>Dragging on the board draws a selection box. Click it once to select, then drag to move it</dd>
+  <dt>Lock</dt><dd>Pin a shape in place so it never moves</dd>
+  <dt><kbd>Esc</kbd></dt><dd>Leave a tool, clear the selection</dd>
+  </dl>
+  <p style="margin-top:12px">Typed values in the properties panel apply when you press Enter or click somewhere else. A red border means the value isn't applied yet; Esc cancels it.</p>
+  <p>Your work is kept in this browser automatically. Save JSON for a permanent copy; SVG export keeps true mm scale for documents.</p></div>`;
+}
+function updateGeoFields() {
+  const items = selected(); if (items.length !== 1) return;
+  const o = items[0];
+  const set = (inp, v) => { if (inp.classList.contains('dirty')) return; inp.defaultValue = v; inp.value = v; };
+  document.querySelectorAll('#propsBody [data-s="geo"]').forEach(inp => set(inp, fmt(o[inp.dataset.k])));
+  if (o.type !== 'shape') { const A = o.type === 'wire' ? endPos(o.a) : o.a, B = o.type === 'wire' ? endPos(o.b) : o.b; document.querySelectorAll('#propsBody [data-s="pt"]').forEach(inp => { const [e, ax] = inp.dataset.k.split('.'); set(inp, fmt((e === 'a' ? A : B)[ax])); }); }
+  if (o.type === 'dim') { const L = dimTotal(o); const f = document.querySelector('[data-s="len"]'); if (f) set(f, fmt(L)); const big = document.querySelector('#propsBody .len'); if (big) big.textContent = L.toFixed(o.style.dec) + ' mm'; }
+}
+function applyProp(k, scope, v) {
+  const items = selected();
+  if (scope === 'geo') { const o = items[0]; if (!o || isNaN(v)) return; if (k === 'w' || k === 'h') o.auto = false; o[k] = (k === 'w' || k === 'h') ? Math.max(.1, v) : v; if ((k === 'w' || k === 'h') && LIBM[o.t] && LIBM[o.t].square) { o.w = o.h = o[k]; } }
+  else if (scope === 'label') { if (items[0]) { items[0].label = v; fitText(items[0]); } }
+  else if (scope === 'pt') { const o = items[0]; if (!o || isNaN(v)) return; const [e, ax] = k.split('.'), cur = o.type === 'wire' ? endPos(o[e]) : o[e]; o[e] = { x: cur.x, y: cur.y }; o[e][ax] = v; }
+  else if (scope === 'len') { const o = items[0]; if (!o || isNaN(v) || v <= 0) return; const g0 = dimGeom(o); const d = g0.L ? [(o.b.x - o.a.x) / g0.L, (o.b.y - o.a.y) / g0.L] : [1, 0]; o.b = { x: o.a.x + d[0] * v, y: o.a.y + d[1] * v }; }
+  else items.forEach(o => {
+    if (k === 'color') { o.style.stroke = v; if ('fc' in o.style) o.style.fc = v; return; }
+    if (k === 'rot' && o.type === 'shape') { const cx = o.x + o.w / 2, cy = o.y + o.h / 2, old = o.rot || 0; if ((old - v) % 180 !== 0) { [o.w, o.h] = [o.h, o.w]; o.x = cx - o.w / 2; o.y = cy - o.h / 2; } o.rot = v; return; }
+    if (k in o.style) { if (typeof v === 'number' && isNaN(v)) return; if (k === 'dec') v = clamp(Math.round(v), 0, 3); o.style[k] = v; if (k === 'route') bakeOrtho(o); if (k === 'fs' && o.type === 'wire') o.style.lauto = false; if (k === 'fs' || k === 'font' || k === 'b' || k === 'i') fitText(o); }
+  });
+  schedule();
+}
+const parseVal = el => el.type === 'checkbox' ? el.checked : (el.type === 'number' || el.type === 'range') ? parseFloat(el.value) : el.value;
+const isTyped = el => el.tagName === 'TEXTAREA' || (el.tagName === 'INPUT' && el.type === 'number');
+const pbody = $('#propsBody');
+pbody.addEventListener('input', e => {
+  const el = e.target; if (!el.dataset.k) return;
+  if (isTyped(el)) {
+    if (el.type === 'number' && el._step) {
+      /* arrow keys and the spinner apply at once; typed values still wait for Enter */
+      const v = parseVal(el); if (isNaN(v)) return;
+      applyProp(el.dataset.k, el.dataset.s, v); commit(); el.defaultValue = el.value; el.classList.remove('dirty'); updateStatus();
+      if (el.dataset.k === 'fs') { const c = pbody.querySelector('[data-k="lauto"]'); if (c && selected().some(o => o.type === 'wire')) c.checked = false; }
+      if (el.dataset.s !== 'geo') updateGeoFields();
+      return;
+    }
+    el.classList.toggle('dirty', el.value !== el.defaultValue); return;
+  }
+  applyProp(el.dataset.k, el.dataset.s, parseVal(el)); updateStatus();
+});
+pbody.addEventListener('change', e => {
+  const el = e.target; if (!el.dataset.k || isTyped(el)) return;
+  applyProp(el.dataset.k, el.dataset.s, parseVal(el)); commit();
+  if (el.type === 'checkbox' || el.tagName === 'SELECT') renderPanel();
+});
+pbody.addEventListener('keydown', e => {
+  const el = e.target; if (!el.dataset || !el.dataset.k || !isTyped(el)) return;
+  if (el.type === 'number') el._step = (e.key === 'ArrowUp' || e.key === 'ArrowDown');
+  if (e.key === 'Enter' && !(el.tagName === 'TEXTAREA' && e.shiftKey)) {
+    e.preventDefault();
+    const v = parseVal(el); if (el.type === 'number' && isNaN(v)) return;
+    applyProp(el.dataset.k, el.dataset.s, v); commit();
+    el.defaultValue = el.value; el.classList.remove('dirty'); updateStatus();
+    if (el.dataset.s === 'len' || el.dataset.k === 'dec' || el.dataset.s === 'pt' || el.dataset.k === 'fs') renderPanel(); else updateGeoFields();
+  } else if (e.key === 'Escape') { el.value = el.defaultValue; el.classList.remove('dirty'); el.blur(); }
+});
+pbody.addEventListener('pointerdown', e => { const el = e.target; if (el.tagName === 'INPUT' && el.type === 'number') el._step = true; });
+pbody.addEventListener('wheel', e => { const el = e.target; if (el.tagName === 'INPUT' && el.type === 'number' && document.activeElement === el) el._step = true; }, { passive: true });
+/* leaving a typed box applies it, exactly like Enter (Esc still cancels) */
+function applyTyped(el, rerender) {
+  const v = parseVal(el);
+  if (el.type === 'number' && isNaN(v)) { el.value = el.defaultValue; el.classList.remove('dirty'); return; }
+  applyProp(el.dataset.k, el.dataset.s, v); commit();
+  el.defaultValue = el.value; el.classList.remove('dirty'); updateStatus();
+  if (rerender && (el.dataset.s === 'len' || el.dataset.k === 'dec' || el.dataset.s === 'pt' || el.dataset.k === 'fs')) renderPanel(); else updateGeoFields();
+}
+function flushPanelInput() { const el = document.activeElement; if (el && pbody.contains(el) && el.classList.contains('dirty') && el.dataset.k) applyTyped(el, true); }
+pbody.addEventListener('focusout', e => { const el = e.target; if (el.classList && el.classList.contains('dirty') && el.dataset.k) applyTyped(el, !(e.relatedTarget && pbody.contains(e.relatedTarget))); });
+pbody.addEventListener('click', e => {
+  const b = e.target.closest('[data-act]'); if (!b) return;
+  const a = b.dataset.act;
+  if (a === 'seg') {
+    let v = b.dataset.v; const k = b.dataset.k;
+    if (v === 'true') { const cur = selected().find(o => o.type === 'shape'); v = !(cur && cur.style[k]); }
+    else if (k === 'rot') v = +v;
+    applyProp(k, 'style', v); commit(); renderPanel();
+  }
+  else if (a === 'swatch') { const k = b.dataset.k; applyProp(k, 'style', b.dataset.v); if (k === 'fill') applyProp('fillOn', 'style', true); if (k === 'stroke') applyProp('strokeOn', 'style', true); commit(); renderPanel(); }
+  else if (a === 'lock') { const sh = selected().filter(o => o.type === 'shape'), v = !sh.every(o => o.lock); sh.forEach(o => { o.lock = v; o.lockSet = true; }); commit(); renderPanel(); }
+  else if (a === 'swapcaps') { selected().forEach(o => { if (o.type === 'wire') { const t = o.style.startCap; o.style.startCap = o.style.endCap; o.style.endCap = t; } }); commit(); renderPanel(); }
+  else if (a === 'dup') duplicate();
+  else if (a === 'group') groupSel();
+  else if (a === 'ungroup') ungroupSel();
+  else if (a === 'rot') rotateSel();
+  else if (a === 'front') reorder(true);
+  else if (a === 'back') reorder(false);
+  else if (a === 'del') deleteSel();
+  else if (a === 'al') align(b.dataset.v);
+  else if (a === 'pgor') { page.orient = b.dataset.v; savePage(); fit(); renderPanel(); }
+  else if (a === 'pgcenter') centerOnPage();
+  else if (a === 'pgcrop') cropToContent();
+});
+
+/* ───────────── library panel ───────────── */
+function tileSVG(L) {
+  if (L.line) { const st = Object.assign({}, LINE_STYLE, L.st), a = { x: 5, y: 15 }, b = { x: 39, y: 15 }, k = 7;
+    const A = st.startCap !== 'none' ? shorten(a, b, capInset(st.startCap, k)) : a, B = st.endCap !== 'none' ? shorten(b, a, capInset(st.endCap, k)) : b;
+    return `<svg viewBox="0 0 44 30"><line x1="${A.x}" y1="15" x2="${B.x}" y2="15" stroke="currentColor" stroke-width="1.6"${st.dash === 'dash' ? ' stroke-dasharray="5 3"' : ''}/>${st.startCap !== 'none' ? capSVG(st.startCap, a, b, k, 'currentColor', 1.6) : ''}${st.endCap !== 'none' ? capSVG(st.endCap, b, a, k, 'currentColor', 1.6) : ''}</svg>`; }
+  const draw = DRAW[L.d], m = Math.max(L.w, L.h), sw = m / 22;
+  if (!draw) return `<svg viewBox="0 0 44 30"><text x="22" y="20" text-anchor="middle" font-size="16" fill="currentColor" font-family="Georgia,serif">Aa</text></svg>`;
+  return `<svg viewBox="${F(-sw)} ${F(-sw)} ${F(L.w + 2 * sw)} ${F(L.h + 2 * sw)}" preserveAspectRatio="xMidYMid meet"><g fill="none" stroke="currentColor" stroke-width="${F(sw)}" stroke-linejoin="round" stroke-linecap="round" color="currentColor">${draw(L.w, L.h).replace('fill="#ffffff"', 'fill="none"')}</g></svg>`;
+}
+function renderLib(q) {
+  q = (q || '').trim().toLowerCase();
+  let h = '';
+  CATS.forEach(([c, name]) => {
+    const list = LIB.filter(l => l.c === c && (!q || (l.n + ' ' + l.t + ' ' + l.c).toLowerCase().includes(q)));
+    if (!list.length) return;
+    h += `<h3>${name}</h3><div class="tiles">${list.map(l => `<button class="tile" draggable="true" data-t="${l.t}" title="${esc(l.n)}${l.line ? '' : ` (${fmt(l.w)} × ${fmt(l.h)} mm)`}">${tileSVG(l)}<span>${esc(l.n)}</span></button>`).join('')}</div>`;
+  });
+  $('#libBody').innerHTML = h || '<p class="help" style="padding:8px 4px">No shape with that name. Add a rectangle and type your own label.</p>';
+}
+$('#libBody').addEventListener('click', e => { const t = e.target.closest('.tile'); if (t) { if (placing === t.dataset.t) stopPlacing(); else startPlacing(t.dataset.t); } });
+function startPlacing(t) {
+  setTool('select'); placing = t; placeRot = 0; svg.classList.add('placing');
+  document.querySelectorAll('.tile').forEach(b => b.classList.toggle('on', b.dataset.t === t));
+  closeDrawers(); toast(typeof t === 'object' ? 'Click where you want to paste. Shift+click pastes more, Esc cancels.' : 'Click on the page to place it. Shift+click places more, Esc cancels.'); schedule();
+}
+function stopPlacing() { placing = null; placeRot = 0; svg.classList.remove('placing'); document.querySelectorAll('.tile.on').forEach(b => b.classList.remove('on')); schedule(); }
+$('#libBody').addEventListener('dragstart', e => { const t = e.target.closest('.tile'); if (t) { e.dataTransfer.setData('text/plain', t.dataset.t); e.dataTransfer.effectAllowed = 'copy'; } });
+$('#libSearch').addEventListener('input', e => renderLib(e.target.value));
+
+/* ───────────── files ───────────── */
+let dlNs = null;
+async function getDownloads() {
+  if (dlNs) return dlNs;
+  try { if (window.claude && typeof window.claude.use === 'function') dlNs = await window.claude.use('downloads'); } catch (e) { dlNs = null; }
+  return dlNs;
+}
+getDownloads();
+async function offerFile(name, data) {
+  const dl = await getDownloads();
+  if (dl) {
+    try { await dl.save({ filename: name, data }); toast(name + ' saved'); }
+    catch (err) { if (err && err.code === 'declined') return; toast("Couldn't save the file: " + ((err && err.message) || 'unknown error')); }
+    return;
+  }
+  const blob = data instanceof Blob ? data : new Blob([data], { type: 'application/octet-stream' });
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name;
+  document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 3000);
+}
+function buildSVG(pxW) {
+  if (!objs.length) return null;
+  const body = objs.map(o => objSVG(o, true)).join('');
+  const P = pageBox(); let x, y, w, h;
+  if (P) { x = 0; y = 0; w = P.w; h = P.h; }
+  else {
+    const tmp = document.createElementNS('http://www.w3.org/2000/svg', 'g'); tmp.innerHTML = body; world.appendChild(tmp);
+    const bb = tmp.getBBox(); tmp.remove();
+    const m = 2; x = bb.x - m; y = bb.y - m; w = bb.width + 2 * m; h = bb.height + 2 * m;
+  }
+  const size = pxW ? `width="${Math.round(w * pxW)}" height="${Math.round(h * pxW)}"` : `width="${F(w)}mm" height="${F(h)}mm"`;
+  return { w, h, text: `<?xml version="1.0" encoding="UTF-8"?>\n<svg xmlns="http://www.w3.org/2000/svg" ${size} viewBox="${F(x)} ${F(y)} ${F(w)} ${F(h)}"><rect x="${F(x)}" y="${F(y)}" width="${F(w)}" height="${F(h)}" fill="#ffffff"/>${body}</svg>` };
+}
+$('#btnSvg').onclick = () => { const s = buildSVG(); if (!s) return toast('Nothing to export yet'); offerFile('block-diagram.svg', s.text); };
+$('#btnPng').onclick = () => {
+  let s = buildSVG(); if (!s) return toast('Nothing to export yet');
+  const scale = Math.min(300 / 25.4, 8000 / Math.max(s.w, s.h)); s = buildSVG(scale);
+  const img = new Image();
+  img.onload = () => {
+    const c = document.createElement('canvas'); c.width = Math.round(s.w * scale); c.height = Math.round(s.h * scale);
+    c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+    c.toBlob(b => b ? offerFile('block-diagram.png', b) : toast("Couldn't create the PNG"), 'image/png');
+  };
+  img.onerror = () => toast("Couldn't create the PNG. Try SVG export.");
+  img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(s.text);
+};
+$('#btnSave').onclick = saveJSON;
+function saveJSON() { offerFile('block-diagram.json', JSON.stringify({ app: 'block-diagram', v: 2, page, objs }, null, 1)); }
+$('#btnOpen').onclick = () => $('#fileIn').click();
+$('#fileIn').onchange = e => {
+  const f = e.target.files[0]; if (!f) return;
+  const r = new FileReader();
+  r.onload = () => {
+    try { const d = JSON.parse(r.result); const list = Array.isArray(d) ? d : d.objs; if (!Array.isArray(list)) throw 0; objs = normalize(list); if (d.page && d.page.fmt) { page = Object.assign({ orient: 'landscape' }, d.page); savePage(); } sel.clear(); commit(); fit(); renderPanel(); toast(f.name + ' opened'); }
+    catch (err) { toast("This isn't a Block Diagram JSON file"); }
+  };
+  r.readAsText(f); e.target.value = '';
+};
+$('#btnNew').onclick = () => { if (objs.length && !confirm('Clear everything on the page? You can undo this.')) return; objs = []; sel.clear(); commit(); schedule(); renderPanel(); };
+
+/* ───────────── toolbar ───────────── */
+document.querySelectorAll('.tool').forEach(b => b.onclick = () => setTool(b.dataset.tool));
+document.querySelectorAll('.al').forEach(b => b.onclick = () => align(b.dataset.al));
+$('#btnUndo').onclick = undo; $('#btnRedo').onclick = redo;
+$('#btnGrid').onclick = () => { showGrid = !showGrid; $('#btnGrid').setAttribute('aria-pressed', showGrid); schedule(); };
+$('#btnSnap').onclick = () => { snapOn = !snapOn; $('#btnSnap').setAttribute('aria-pressed', snapOn); };
+$('#selStep').onchange = e => { step = parseFloat(e.target.value); schedule(); };
+/* ───────────── format painter ───────────── */
+let fmtPaint = null, fmtClip = null;
+function styleOf(o) { const s = JSON.parse(JSON.stringify(o.style)); delete s.route; return s; }
+function applyFormat(o, f) { if (!o || catOf(o) !== f.cat) return false; Object.assign(o.style, JSON.parse(JSON.stringify(f.style))); fitText(o); return true; }
+function startPaint(sticky) {
+  const src = selected()[0];
+  if (!src) { toast('Select the object whose format you want to copy first'); return; }
+  if (tool !== 'select') setTool('select');
+  fmtPaint = { cat: catOf(src), style: styleOf(src), sticky }; fmtClip = { cat: fmtPaint.cat, style: fmtPaint.style };
+  svg.classList.add('painting'); $('#btnFmt').setAttribute('aria-pressed', 'true');
+  toast(sticky ? 'Format painter locked on. Click objects to paint, Esc stops' : 'Click an object of the same kind to paste the format. Esc cancels');
+}
+function endPaint() { fmtPaint = null; svg.classList.remove('painting'); $('#btnFmt').setAttribute('aria-pressed', 'false'); }
+$('#btnFmt').onclick = e => { if (e.detail >= 2) { endPaint(); startPaint(true); } else if (fmtPaint) endPaint(); else startPaint(false); };
+/* ───────────── selection filter ───────────── */
+const FCATS = [['block', 'Blocks'], ['text', 'Text boxes'], ['wire', 'Connectors'], ['line', 'Lines'], ['dim', 'Dimensions'], ['pcb', 'PCB outline']];
+const FKEY = 'blok-sema.filter';
+let selFilter = Object.fromEntries(FCATS.map(([k]) => [k, true]));
+try { const v = JSON.parse(localStorage.getItem(FKEY) || 'null'); if (v) Object.assign(selFilter, v); } catch (e) {}
+function catOf(o) { return o.type === 'shape' ? (o.t === 'text' ? 'text' : o.t === 'pcb' ? 'pcb' : 'block') : o.type === 'wire' ? (o.kind === 'line' ? 'line' : 'wire') : 'dim'; }
+function passes(o) { return !!o && selFilter[catOf(o)] !== false; }
+function filterOn() { return FCATS.some(([k]) => selFilter[k] === false); }
+function renderFilterPop() {
+  $('#filterPop').innerHTML = `<div class="gp-h">Select only</div>${FCATS.map(([k, l]) => `<label><input type="checkbox" data-fc="${k}"${selFilter[k] !== false ? ' checked' : ''}>${l}</label>`).join('')}<div class="gp-sep"></div><button data-fall="1">Select everything</button><button data-fnone="1">Select nothing</button>`;
+  $('#btnFilter').setAttribute('aria-pressed', filterOn() ? 'true' : 'false');
+}
+function placePop(m, x, y) { m.hidden = false; const r = m.getBoundingClientRect(); m.style.left = Math.max(6, Math.min(x, innerWidth - r.width - 6)) + 'px'; m.style.top = Math.max(6, Math.min(y, innerHeight - r.height - 6)) + 'px'; }
+$('#btnFilter').onclick = () => { const m = $('#filterPop'); if (!m.hidden) { m.hidden = true; return; } renderFilterPop(); const r = $('#btnFilter').getBoundingClientRect(); placePop(m, r.left, r.bottom + 4); };
+$('#filterPop').addEventListener('change', e => { const k = e.target.dataset.fc; if (!k) return; selFilter[k] = e.target.checked; try { localStorage.setItem(FKEY, JSON.stringify(selFilter)); } catch (err) {} renderFilterPop(); });
+$('#filterPop').addEventListener('click', e => { const all = e.target.closest('[data-fall]'), none = e.target.closest('[data-fnone]'); if (all || none) { FCATS.forEach(([k]) => { selFilter[k] = !!all; }); try { localStorage.setItem(FKEY, JSON.stringify(selFilter)); } catch (err) {} renderFilterPop(); } });
+renderFilterPop();
+/* ───────────── G: quick grid menu ───────────── */
+const STEPS = [0.1, 0.5, 1, 2, 2.54, 5];
+let lastMouse = null, patStep = null;
+window.addEventListener('pointermove', e => { lastMouse = { x: e.clientX, y: e.clientY }; }, { passive: true });
+function updatePattern() {
+  if (patStep === step) return; patStep = step;
+  const P = 10 * step, pat = $('#gridPat'); let d = '';
+  for (let i = 1; i < 10; i++) { const v = F(i * step); d += `M${v} 0V${F(P)}M0 ${v}H${F(P)}`; }
+  pat.setAttribute('width', F(P)); pat.setAttribute('height', F(P));
+  $('#gMinor').setAttribute('d', d); $('#gMajor').setAttribute('d', `M0 0V${F(P)}M0 0H${F(P)}`);
+}
+function setStep(v) { step = v; $('#selStep').value = String(v); schedule(); toast(`Snap grid ${fmt(v)} mm`); }
+function gridMenuOpen() { return !$('#gridPop').hidden; }
+function openGridMenu() {
+  const m = $('#gridPop');
+  m.innerHTML = `<div class="gp-h">Snap grid</div>${STEPS.map((v, i) => `<button data-step="${v}" class="${v === step ? 'on' : ''}"><kbd>${i + 1}</kbd>${fmt(v)} mm</button>`).join('')}<div class="gp-sep"></div><button data-gp="show"><kbd>V</kbd>${showGrid ? 'Hide grid' : 'Show grid'}</button><button data-gp="snap"><kbd>S</kbd>${snapOn ? 'Turn snapping off' : 'Turn snapping on'}</button>`;
+  const r = wrap.getBoundingClientRect(), p = lastMouse || { x: r.left + r.width / 2, y: r.top + r.height / 2 };
+  placePop(m, p.x + 8, p.y + 8);
+}
+function gridAction(a) {
+  $('#gridPop').hidden = true;
+  if (a === 'show') $('#btnGrid').click(); else if (a === 'snap') $('#btnSnap').click(); else if (a != null) setStep(+a);
+}
+$('#gridPop').addEventListener('click', e => { const b = e.target.closest('button'); if (b) gridAction(b.dataset.step != null ? b.dataset.step : b.dataset.gp); });
+window.addEventListener('pointerdown', e => {
+  if (!$('#gridPop').hidden && !e.target.closest('#gridPop')) $('#gridPop').hidden = true;
+  if (!$('#filterPop').hidden && !e.target.closest('#filterPop') && !e.target.closest('#btnFilter')) $('#filterPop').hidden = true;
+}, true);
+$('#btnZoomIn').onclick = () => zoomAt(wrap.clientWidth / 2, wrap.clientHeight / 2, 1.25);
+$('#btnZoomOut').onclick = () => zoomAt(wrap.clientWidth / 2, wrap.clientHeight / 2, 1 / 1.25);
+$('#zoomLbl').onclick = () => zoomAt(wrap.clientWidth / 2, wrap.clientHeight / 2, PXMM / view.z);
+$('#btnFit').onclick = fit;
+$('#btnCrop').onclick = () => cropToContent();
+function closeDrawers() { $('#lib').classList.remove('open'); $('#props').classList.remove('open'); }
+$('#btnLib').onclick = () => { $('#props').classList.remove('open'); $('#lib').classList.toggle('open'); };
+$('#btnProps').onclick = () => { $('#lib').classList.remove('open'); $('#props').classList.toggle('open'); };
+document.querySelectorAll('[data-close]').forEach(b => b.onclick = closeDrawers);
+let toastT = 0;
+function toast(m) { const t = $('#toast'); t.textContent = m; t.classList.add('on'); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove('on'), 2200); }
+
+/* ───────────── keyboard ───────────── */
+window.addEventListener('keydown', e => {
+  if (gridMenuOpen()) {
+    const k = e.key.toLowerCase(); e.preventDefault();
+    if (k >= '1' && k <= String(STEPS.length)) gridAction(STEPS[+k - 1]);
+    else if (k === 'v') gridAction('show'); else if (k === 's') gridAction('snap'); else if (k === 'escape' || k === 'g') $('#gridPop').hidden = true;
+    return;
+  }
+  if (e.key === 'Tab' && (poly || paused)) { e.preventDefault(); togglePause(); return; }
+  if (e.target.matches('input, textarea, select')) { if (e.key === 'Escape') e.target.blur(); return; }
+  const mod = e.ctrlKey || e.metaKey, k = e.key.toLowerCase();
+  if (mod) {
+    if (e.shiftKey && k === 'c') { e.preventDefault(); const src = selected()[0]; if (src) { fmtClip = { cat: catOf(src), style: styleOf(src) }; toast('Format copied. Select objects of the same kind and press Ctrl+Shift+V'); } return; }
+    if (e.shiftKey && k === 'v') { e.preventDefault(); if (fmtClip) { const n = selected().filter(o => applyFormat(o, fmtClip)).length; if (n) { commit(); schedule(); renderPanel(); } else toast('No selected object is the same kind as the copied format'); } return; }
+    if (k === 'z') { e.preventDefault(); e.shiftKey ? redo() : undo(); }
+    else if (k === 'y') { e.preventDefault(); redo(); }
+    else if (k === 'c') { copySel(); }
+    else if (k === 'x') { if (copySel()) deleteSel(); }
+    else if (k === 'v') { e.preventDefault(); paste(); }
+    else if (k === 'd') { e.preventDefault(); duplicate(); }
+    else if (k === 'g') { e.preventDefault(); if (e.shiftKey) ungroupSel(); else groupSel(); }
+    else if (k === 'r') { e.preventDefault(); if (placing) rotatePlacing(); else rotateSel(); }
+    else if (k === 'm') { e.preventDefault(); if (placing) stopPlacing(); setTool('qm'); sel.clear(); renderPanel(); toast('Quick measure: click two points. It stays on screen; Shift+C clears measurements.'); }
+    else if (k === 'a') { e.preventDefault(); sel = new Set(objs.filter(passes).map(o => o.id)); schedule(); renderPanel(); }
+    else if (k === 's') { e.preventDefault(); saveJSON(); }
+    return;
+  }
+  if (e.key === ' ') { e.preventDefault(); if (e.repeat) return; if (placing) { rotatePlacing(); return; } if (drag && drag.k === 'move') { rotateDuringDrag(); return; } spaceDown = true; spaceUsed = false; return; }
+  if (k === 'v') setTool('select');
+  else if (k === 't') setTool('text');
+  else if (k === 'w') setTool('wire');
+  else if (k === 'l') setTool('line');
+  else if (k === 'm') setTool('dim');
+  else if (k === 'g') openGridMenu();
+  else if (k === 'c' && e.shiftKey) { e.preventDefault(); if (measures.length) { measures = []; schedule(); } }
+  else if (k === 'r') rotateSel();
+  else if (e.key === ']') reorder(true);
+  else if (e.key === '[') reorder(false);
+  else if (k === 'delete' || k === 'backspace') { e.preventDefault(); deleteSel(); }
+  else if (k === 'escape') { if (fmtPaint) endPaint(); else if (poly) { cancelPoly(); setTool('select'); } else if (placing) stopPlacing(); else if (tool !== 'select') setTool('select'); else { sel.clear(); schedule(); renderPanel(); } }
+  else if (k === '+' || k === '=') zoomAt(wrap.clientWidth / 2, wrap.clientHeight / 2, 1.25);
+  else if (k === '-') zoomAt(wrap.clientWidth / 2, wrap.clientHeight / 2, 1 / 1.25);
+  else if (k === '0') fit();
+  else if (k.startsWith('arrow') && sel.size) {
+    e.preventDefault();
+    const d = e.altKey ? .1 : (e.shiftKey ? step * 10 : step);
+    const dx = k === 'arrowleft' ? -d : k === 'arrowright' ? d : 0, dy = k === 'arrowup' ? -d : k === 'arrowdown' ? d : 0;
+    moveBy(selected(), dx, dy); commit(); schedule(); updateGeoFields();
+  }
+});
+/* a Space tap rotates; Space held while dragging the page still pans */
+window.addEventListener('keyup', e => { if (e.key === ' ') { if (spaceDown && !spaceUsed && !drag) rotateSel(); spaceDown = false; } });
+window.addEventListener('resize', schedule);
+window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', schedule);
+
+/* ───────────── demo page ───────────── */
+function demo() {
+  const S = (t, x, y, extra = {}) => { const o = newShape(t, 0, 0), base = o.style; Object.assign(o, { x, y }, extra); o.style = Object.assign({}, base, extra.style || {}); return o; };
+  const pcb = S('pcb', 0, 0, { w: 120, h: 60, label: 'RF receiver board  {w} × {h} mm', style: { ha: 'center' } });
+  const shield = S('rect', 13, 12, { w: 52, h: 20, label: 'Shield', style: { fillOn: false, stroke: '#6b7785', dash: 'dash', fc: '#6b7785', ha: 'left', va: 'top', fs: 6 } });
+  const j1 = S('sma', 5, 19, { label: 'J1' }), lna = S('amp', 18, 18, { label: 'LNA' }), bpf = S('bpf', 33, 17.5, { h: 9, label: 'BPF' }), mix = S('mixer', 52, 18, { label: 'MIX' }), ifa = S('amp', 70, 18, { label: 'IF AMP' }), adc = S('adc', 86, 16, { h: 12, label: 'ADC' });
+  const hdr = S('header', 106, 15.65, { w: 2.54, h: 12.7, rot: 90, label: 'J2' });
+  const tcxo = S('tcxo', 24, 37.5, { label: 'TCXO' }), pll = S('rect', 49, 36, { w: 14, h: 10, label: 'PLL' }), ldo = S('rect', 84, 40, { w: 12, h: 8, label: 'LDO 3V3' });
+  const holes = [[3, 3], [111, 3], [3, 51], [111, 51]].map(([x, y]) => S('hole', x, y));
+  const W = (a, ap, b, bp) => ({ id: uid(), type: 'wire', a: { id: a.id, port: ap }, b: { id: b.id, port: bp }, style: Object.assign({}, WIRE_STYLE) });
+  const note = S('text', 0, 65, { w: 70, h: 6, label: 'Note: J1 to LNA trace is 50 Ω GCPW', style: { fs: 8, fc: '#5a6672', i: true } });
+  objs = [pcb, shield, j1, lna, bpf, mix, ifa, adc, hdr, tcxo, pll, ldo, ...holes, note,
+    W(j1, 1, lna, 0), W(lna, 1, bpf, 0), W(bpf, 1, mix, 0), W(mix, 1, ifa, 0), W(ifa, 1, adc, 0), W(adc, 1, hdr, 3), W(tcxo, 1, pll, 0), W(pll, 2, mix, 3),
+    { id: uid(), type: 'dim', a: { x: 0, y: -5 }, b: { x: 120, y: -5 }, style: Object.assign({}, DIM_STYLE) },
+    { id: uid(), type: 'dim', a: { x: -5, y: 60 }, b: { x: -5, y: 0 }, style: Object.assign({}, DIM_STYLE) }];
+}
+
+/* ───────────── page format ───────────── */
+const PAGES = { A0: [841, 1189], A1: [594, 841], A2: [420, 594], A3: [297, 420], A4: [210, 297], A5: [148, 210], Letter: [215.9, 279.4], Legal: [215.9, 355.6], Tabloid: [279.4, 431.8] };
+const PGKEY = 'blok-sema.page';
+let page = { fmt: 'A4', orient: 'landscape' };
+function pageBox() { if (page.fmt === 'custom' && page.w > 0 && page.h > 0) return { x: 0, y: 0, w: page.w, h: page.h }; const p = PAGES[page.fmt]; if (!p) return null; const a = Math.min(...p), b = Math.max(...p); return page.orient === 'landscape' ? { x: 0, y: 0, w: b, h: a } : { x: 0, y: 0, w: a, h: b }; }
+function pageLabel() { const b = pageBox(); if (b && page.fmt === 'custom') return `Fitted to drawing, ${fmt(b.w)} × ${fmt(b.h)} mm`; return b ? `${page.fmt} ${page.orient}, ${fmt(b.w)} × ${fmt(b.h)} mm` : 'Unlimited page'; }
+function savePage() { try { localStorage.setItem(PGKEY, JSON.stringify(page)); } catch (e) {} }
+function centerOnPage() { const P = pageBox(), B = unionBox(objs); if (!P || !B) return; moveBy(objs, snapv(P.w / 2 - (B.x + B.w / 2)), snapv(P.h / 2 - (B.y + B.h / 2))); commit(); schedule(); }
+function pageHTML() {
+  const P = pageBox(), cust = page.fmt === 'custom' && !!P;
+  const btn = 'style="border:1px solid var(--line);height:26px;font-size:12px"';
+  return `<div class="sec"><h4>Page</h4>
+    <div class="row" style="margin-top:0"><label class="f" style="flex:1"><span>Size</span><select id="pgFmt">${opt('custom', page.fmt, cust ? `Fitted to drawing (${fmt(P.w)} × ${fmt(P.h)} mm)` : 'Fit to drawing')}${opt('none', page.fmt, 'Unlimited')}${Object.keys(PAGES).map(k => opt(k, page.fmt, `${k} (${PAGES[k].map(fmt).join(' × ')} mm)`)).join('')}</select></label></div>
+    ${P && !cust ? `<div class="row"><span class="f"><span>Orientation</span></span><div class="seg"><button type="button" data-act="pgor" data-v="portrait" class="${page.orient === 'portrait' ? 'on' : ''}">Portrait</button><button type="button" data-act="pgor" data-v="landscape" class="${page.orient === 'landscape' ? 'on' : ''}">Landscape</button></div></div>` : ''}
+    <div class="row"><button class="btn" data-act="pgcrop" ${btn}>Fit page to drawing</button>${P && !cust ? `<button class="btn" data-act="pgcenter" ${btn}>Center drawing on page</button>` : ''}</div>
+    <p class="sub" style="margin-top:8px">${cust ? 'The page hugs your drawing with a 2 mm margin, so SVG and PNG export only the used area. After you change the drawing, press Crop again.' : P ? `${fmt(P.w)} × ${fmt(P.h)} mm. SVG and PNG export the whole page at this size.` : 'SVG and PNG export just the drawing.'}</p></div>`;
+}
+function contentBox() {
+  if (!objs.length) return null;
+  const tmp = document.createElementNS('http://www.w3.org/2000/svg', 'g'); tmp.innerHTML = objs.map(o => objSVG(o, true)).join(''); world.appendChild(tmp);
+  let bb = null; try { bb = tmp.getBBox(); } catch (e) { bb = null; } tmp.remove();
+  if (!bb || !(bb.width > 0 || bb.height > 0)) return unionBox(objs);
+  return { x: bb.x, y: bb.y, w: bb.width, h: bb.height };
+}
+/* shrink the page to the drawing (labels and arrowheads included) plus a 2 mm margin; content moves by whole grid steps */
+function cropToContent() {
+  const B = contentBox(); if (!B) { toast('Draw something first'); renderPanel(); return; }
+  const m = 2, st = step > 0 ? step : 1;
+  const dx = -Math.floor((B.x - m) / st) * st, dy = -Math.floor((B.y - m) / st) * st;
+  moveBy(objs, dx, dy);
+  const w = Math.ceil((B.x + dx + B.w + m) * 2) / 2, h = Math.ceil((B.y + dy + B.h + m) * 2) / 2;
+  page = { fmt: 'custom', orient: page.orient || 'landscape', w, h };
+  savePage(); commit(); fit(); renderPanel(); toast(`Page fitted to the drawing: ${fmt(w)} × ${fmt(h)} mm`);
+}
+pbody.addEventListener('change', e => { if (e.target.id === 'pgFmt') { if (e.target.value === 'custom') { cropToContent(); return; } page.fmt = e.target.value; savePage(); fit(); renderPanel(); } });
+
+/* ───────────── boot ───────────── */
+let saved = null;
+try { saved = localStorage.getItem(LSKEY); } catch (e) { saved = null; }
+try { if (saved) objs = normalize(JSON.parse(saved)); } catch (e) { objs = []; }
+if (!saved) demo();
+{
+  let ps = null; try { ps = localStorage.getItem(PGKEY); } catch (e) { ps = null; }
+  if (ps) { try { const v = JSON.parse(ps); if (v && v.fmt) page = v; } catch (e) {} }
+  else {
+    savePage();
+    const P = pageBox(), B = unionBox(objs);
+    if (P && B && (B.x < 0 || B.y < 0 || B.x + B.w > P.w || B.y + B.h > P.h)) moveBy(objs, snapv(P.w / 2 - (B.x + B.w / 2)), snapv(P.h / 2 - (B.y + B.h / 2)));
+  }
+}
+renderLib(''); setTool('select'); commit(); renderPanel();
+requestAnimationFrame(() => { fit(); });
+if (document.fonts && document.fonts.ready) document.fonts.ready.then(schedule);
+})();
+</script>
+</body>
+</html>
